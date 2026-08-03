@@ -1,0 +1,2 @@
+# jingxipanel
+这个是基于fastapi开发的一个AI应用的管理后台程序
