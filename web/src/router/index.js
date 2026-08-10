@@ -3,6 +3,12 @@ import { useMenuStore } from '@/stores/menu'
 
 const routes = [
   {
+    path: '/install',
+    name: 'Install',
+    component: () => import('@/views/install/Index.vue'),
+    meta: { title: '系统安装', public: true }
+  },
+  {
     path: '/',
     name: 'LandingPage',
     component: () => import('@/views/LandingPage.vue'),
@@ -364,6 +370,21 @@ router.beforeEach(async (to, from, next) => {
   
   const token = localStorage.getItem('token')
   const isLoggedIn = !!token
+  
+  // ---- 安装状态检查 ----
+  const isInstalled = localStorage.getItem('system_installed') === 'true'
+  
+  // 如果未安装，且目标不是安装页面，重定向到安装页面
+  if (!isInstalled && to.path !== '/install') {
+    next({ path: '/install' })
+    return
+  }
+  
+  // 如果已安装，且目标是安装页面，重定向到登录页
+  if (isInstalled && to.path === '/install') {
+    next({ path: '/panel/login' })
+    return
+  }
 
   if (to.path === '/panel/login' && isLoggedIn) {
     next({ path: '/panel/dashboard' })
