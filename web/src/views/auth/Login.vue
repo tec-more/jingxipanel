@@ -3,8 +3,8 @@
     <div class="login-card">
       <div class="login-header">
         <img src="@/assets/logo.svg" alt="logo" class="logo" />
-        <h1>{{ config.frontend_name }}</h1>
-        <p>{{ config.backend_name }}</p>
+        <h1>{{ systemStore.backend_name }}</h1>
+        <p>{{ systemStore.frontend_name }}</p>
       </div>
 
       <el-form
@@ -51,16 +51,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
-import { getSystemConfig } from '@/api/common'
+import { useSystemStore } from '@/stores/system'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const systemStore = useSystemStore()
 
 const formRef = ref(null)
 const loading = ref(false)
@@ -70,31 +71,14 @@ const form = ref({
   password: ''
 })
 
-const config = reactive({
-  frontend_name: '笑话面对面',
-  backend_name: '管理后台'
-})
-
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
 
 onMounted(async () => {
-  try {
-    const res = await getSystemConfig()
-    const data = res.data || res
-    if (data.frontend_name) {
-      config.frontend_name = data.frontend_name
-    }
-    if (data.backend_name) {
-      config.backend_name = data.backend_name
-    }
-    // 更新浏览器标题
-    document.title = `${config.backend_name} - 登录`
-  } catch (e) {
-    // 失败则使用默认值
-  }
+  // 路由守卫已加载过配置，这里强制刷新一次确保最新
+  await systemStore.loadConfig(true)
 })
 
 const handleLogin = async () => {

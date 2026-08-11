@@ -13,7 +13,7 @@ const routes = [
     path: '/',
     name: 'LandingPage',
     component: () => import('@/views/LandingPage.vue'),
-    meta: { title: '笑话面对面', public: true }
+    meta: { title: '', public: true }
   },
   {
     path: '/panel/login',

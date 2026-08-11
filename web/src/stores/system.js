@@ -6,8 +6,8 @@ export const useSystemStore = defineStore('system', () => {
   const app_name = ref('AIPanelAdmin')
   const app_version = ref('v0.1.0')
   const app_description = ref('AIPanelAdmin API Documentation')
-  const frontend_name = ref('笑话面对面')
-  const backend_name = ref('AIPanelAdmin 管理后台')
+  const frontend_name = ref('')
+  const backend_name = ref('')
   const debug = ref(false)
   const loaded = ref(false)
 
