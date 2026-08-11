@@ -1,11 +1,11 @@
-﻿<template>
+<template>
   <div class="landing-page">
     <!-- 导航栏 -->
     <header class="header">
       <div class="header-content">
         <div class="logo">
           <img src="@/assets/logo.svg" alt="Logo" />
-          <h1>笑话面对面</h1>
+          <h1>{{ systemStore.productName }}</h1>
         </div>
       </div>
     </header>
@@ -13,7 +13,7 @@
     <!-- Hero区域 -->
     <section class="hero">
       <div class="hero-content">
-        <h1 class="hero-title">笑话面对面</h1>
+        <h1 class="hero-title">{{ systemStore.productName }}</h1>
         <p class="hero-subtitle">轻松分享快乐时光，让欢声笑语传递每一个人</p>
         <div class="hero-buttons">
           <el-button type="primary" size="large" @click="scrollToDownload">
@@ -142,7 +142,7 @@
     <!-- 页脚 -->
     <footer class="footer">
       <div class="container">
-        <p>&copy; {{ currentYear }} 笑话面对面. All rights reserved.</p>
+        <p>&copy; {{ currentYear }} {{ systemStore.productName }}. All rights reserved.</p>
         <p>联系我们：sales@aif2f.cloud</p>
       </div>
     </footer>
@@ -150,7 +150,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import {
   Download,
   ChatDotSquare,
@@ -160,6 +160,13 @@ import {
   Cellphone,
   Iphone
 } from '@element-plus/icons-vue'
+import { useSystemStore } from '@/stores/system'
+
+const systemStore = useSystemStore()
+
+onMounted(() => {
+  systemStore.loadConfig()
+})
 
 // 获取当前年份
 const currentYear = ref(new Date().getFullYear())

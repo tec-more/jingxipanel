@@ -97,21 +97,46 @@
             <el-form-item label="密码" prop="db_password">
               <el-input v-model="dbForm.db_password" type="password" show-password placeholder="请输入数据库密码" />
             </el-form-item>
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item label="字符集">
+                  <el-select v-model="dbForm.charset" placeholder="请选择字符集">
+                    <el-option label="UTF8 (推荐)" value="UTF8" />
+                    <el-option label="GBK" value="GBK" />
+                    <el-option label="GB18030" value="GB18030" />
+                    <el-option label="LATIN1" value="LATIN1" />
+                    <el-option label="SQL_ASCII" value="SQL_ASCII" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label=" " label-width="1px">
+                  <div class="auto-create-wrapper">
+                    <el-checkbox v-model="dbForm.auto_create_db">
+                      <span>自动创建数据库（如果指定的数据库不存在）</span>
+                    </el-checkbox>
+                    <el-tooltip content="需要数据库用户具有 CREATE DATABASE 权限" placement="top">
+                      <el-icon class="help-icon"><QuestionFilled /></el-icon>
+                    </el-tooltip>
+                  </div>
+                </el-form-item>
+              </el-col>
+            </el-row>
             <el-divider content-position="left">连接池配置（可选）</el-divider>
             <el-row :gutter="20">
               <el-col :span="8">
                 <el-form-item label="最小连接">
-                  <el-input-number v-model="dbForm.minsize" :min="1" :max="50" />
+                  <el-input v-model.number="dbForm.minsize" type="number" min="1" max="50" placeholder="5" />
                 </el-form-item>
               </el-col>
               <el-col :span="8">
                 <el-form-item label="最大连接">
-                  <el-input-number v-model="dbForm.maxsize" :min="1" :max="200" />
+                  <el-input v-model.number="dbForm.maxsize" type="number" min="1" max="200" placeholder="20" />
                 </el-form-item>
               </el-col>
               <el-col :span="8">
                 <el-form-item label="超时时间(秒)">
-                  <el-input-number v-model="dbForm.timeout" :min="5" :max="300" />
+                  <el-input v-model.number="dbForm.timeout" type="number" min="5" max="300" placeholder="30" />
                 </el-form-item>
               </el-col>
             </el-row>
@@ -189,6 +214,21 @@
                 </el-form-item>
               </el-col>
             </el-row>
+            <el-divider content-position="left">系统名称</el-divider>
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item label="前端名称">
+                  <el-input v-model="serverForm.frontend_name" placeholder="笑话面对面" maxlength="50" />
+                  <div class="form-tip">前端展示的系统名称</div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="后台名称">
+                  <el-input v-model="serverForm.backend_name" placeholder="AIPanelAdmin 管理后台" maxlength="50" />
+                  <div class="form-tip">后台登录页显示的名称</div>
+                </el-form-item>
+              </el-col>
+            </el-row>
           </el-form>
           <div class="step-actions">
             <el-button @click="prevStep">
@@ -258,13 +298,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   Setting, Monitor, Coin, User, CircleCheck, CircleClose,
   Warning, ArrowRight, ArrowLeft, Connection, Download,
-  Loading
+  Loading, QuestionFilled
 } from '@element-plus/icons-vue'
 import { getInstallStatus, testDatabaseConnection, executeInstallation } from '@/api/install'
 
@@ -302,9 +342,11 @@ const dbForm = reactive({
   db_name: 'jingxipanel',
   db_user: 'admin',
   db_password: '',
+  charset: 'UTF8',
   minsize: 5,
   maxsize: 20,
-  timeout: 30
+  timeout: 30,
+  auto_create_db: false
 })
 
 const dbRules = {
@@ -358,7 +400,9 @@ const adminRules = {
 
 const serverForm = reactive({
   app_port: 9998,
-  app_debug: false
+  app_debug: false,
+  frontend_name: '笑话面对面',
+  backend_name: 'AIPanelAdmin 管理后台'
 })
 
 const adminFormValid = ref(false)
@@ -382,6 +426,14 @@ const nextStep = async () => {
       return
     }
     currentStep.value = 2
+    // 进入管理员步骤后，等待 DOM 渲染完成再触发验证
+    nextTick(() => {
+      if (adminFormRef.value) {
+        adminFormRef.value.validate((valid) => {
+          adminFormValid.value = valid
+        })
+      }
+    })
   }
 }
 
@@ -405,7 +457,9 @@ const handleTestConnection = async () => {
         db_port: dbForm.db_port,
         db_name: dbForm.db_name,
         db_user: dbForm.db_user,
-        db_password: dbForm.db_password
+        db_password: dbForm.db_password,
+        charset: dbForm.charset,
+        auto_create_db: dbForm.auto_create_db
       }
     })
 
@@ -430,13 +484,32 @@ const handleTestConnection = async () => {
 }
 
 // 监听管理员表单验证
-const watchAdminForm = () => {
-  if (adminFormRef.value) {
-    adminFormRef.value.validate((valid) => {
-      adminFormValid.value = valid
-    })
+const validateAdminForm = async () => {
+  if (!adminFormRef.value) {
+    adminFormValid.value = false
+    return
+  }
+  try {
+    await adminFormRef.value.validate()
+    adminFormValid.value = true
+  } catch {
+    adminFormValid.value = false
   }
 }
+
+// 监听管理员表单变化，实时更新验证状态
+watch(
+  () => [adminForm.username, adminForm.password, adminForm.confirmPassword, adminForm.email],
+  () => {
+    nextTick(() => {
+      if (adminFormRef.value) {
+        adminFormRef.value.validate((valid) => {
+          adminFormValid.value = valid
+        })
+      }
+    })
+  }
+)
 
 // 执行安装
 const handleExecuteInstall = async () => {
@@ -485,10 +558,12 @@ const handleExecuteInstall = async () => {
         db_name: dbForm.db_name,
         db_user: dbForm.db_user,
         db_password: dbForm.db_password,
+        charset: dbForm.charset,
         minsize: dbForm.minsize,
         maxsize: dbForm.maxsize,
         timeout: dbForm.timeout,
-        command_timeout: dbForm.timeout
+        command_timeout: dbForm.timeout,
+        auto_create_db: dbForm.auto_create_db
       },
       admin: {
         username: adminForm.username,
@@ -559,11 +634,6 @@ const checkInstallStatus = async () => {
 
 onMounted(() => {
   checkInstallStatus()
-  
-  // 表单验证监听
-  if (adminFormRef.value) {
-    adminFormRef.value.validate(() => {})
-  }
 })
 
 onUnmounted(() => {
@@ -571,20 +641,6 @@ onUnmounted(() => {
     clearInterval(installTimer)
   }
 })
-
-// 暴露给模板使用
-const Monitor = Monitor
-const Coin = Coin
-const User = User
-const CircleCheck = CircleCheck
-const CircleClose = CircleClose
-const Warning = Warning
-const ArrowRight = ArrowRight
-const ArrowLeft = ArrowLeft
-const Connection = Connection
-const Download = Download
-const Loading = Loading
-const Setting = Setting
 </script>
 
 <style scoped lang="scss">
@@ -746,6 +802,34 @@ const Setting = Setting
   font-size: 12px;
   color: #909399;
   line-height: 1.4;
+}
+
+.checkbox-desc {
+  color: #606266;
+  font-size: 13px;
+}
+
+.auto-create-wrapper {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.auto-create-wrapper .el-checkbox {
+  margin-right: 0;
+}
+
+.auto-create-wrapper span {
+  white-space: normal;
+  word-break: break-all;
+}
+
+.help-icon {
+  color: #909399;
+  margin-left: 6px;
+  cursor: help;
+  flex-shrink: 0;
 }
 
 .install-progress {

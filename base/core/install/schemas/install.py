@@ -8,10 +8,12 @@ class DatabaseConfig(BaseModel):
     db_name: str = Field(default="jingxipanel", description="数据库名称")
     db_user: str = Field(default="admin", description="数据库用户名")
     db_password: str = Field(default="", description="数据库密码")
+    charset: str = Field(default="UTF8", description="数据库字符集")
     minsize: int = Field(default=5, description="最小连接数")
     maxsize: int = Field(default=20, description="最大连接数")
     timeout: int = Field(default=30, description="连接超时时间")
     command_timeout: int = Field(default=30, description="命令执行超时时间")
+    auto_create_db: bool = Field(default=False, description="数据库不存在时自动创建")
 
 class AdminConfig(BaseModel):
     """管理员配置"""
@@ -24,6 +26,8 @@ class ServerConfig(BaseModel):
     """服务器基础配置"""
     app_port: int = Field(default=9998, description="应用端口")
     app_debug: bool = Field(default=False, description="调试模式")
+    frontend_name: str = Field(default="笑话面对面", description="前端系统名称")
+    backend_name: str = Field(default="AIPanelAdmin 管理后台", description="后台系统名称")
 
 class InstallRequest(BaseModel):
     """安装请求"""

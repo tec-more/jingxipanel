@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useMenuStore } from '@/stores/menu'
+import { useSystemStore } from '@/stores/system'
 
 const routes = [
   {
@@ -366,7 +367,18 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
-  document.title = `${to.meta.title || ''} - 笑话面对面`
+  // 初始化系统配置（确保第一次路由就有名称可用）
+  const systemStore = useSystemStore()
+  if (!systemStore.loaded) {
+    try {
+      await systemStore.loadConfig()
+    } catch (_) {}
+  }
+  // 动态拼接浏览器标题：页面标题 - 系统名称
+  const siteName = to.path.startsWith('/panel')
+    ? (systemStore.backend_name || systemStore.app_name)
+    : (systemStore.frontend_name || systemStore.app_name)
+  document.title = to.meta.title ? `${to.meta.title} - ${siteName}` : siteName
   
   const token = localStorage.getItem('token')
   const isLoggedIn = !!token

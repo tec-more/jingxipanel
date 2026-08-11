@@ -34,7 +34,9 @@ async def test_database_connection(request: TestConnectionRequest):
         db_name=db.db_name,
         db_user=db.db_user,
         db_password=db.db_password,
-        timeout=5
+        charset=db.charset,
+        timeout=5,
+        auto_create_db=db.auto_create_db
     )
     
     return TestConnectionResponse(
@@ -53,14 +55,16 @@ async def execute_installation(request: InstallRequest):
             detail="系统已安装，如需重新安装请先清除安装标记"
         )
     
-    # 先测试数据库连接
+    # 先测试数据库连接（传入 auto_create_db 选项）
     db = request.database
     success, message, _ = await InstallService.test_database_connection(
         db_host=db.db_host,
         db_port=db.db_port,
         db_name=db.db_name,
         db_user=db.db_user,
-        db_password=db.db_password
+        db_password=db.db_password,
+        charset=db.charset,
+        auto_create_db=db.auto_create_db
     )
     
     if not success:
@@ -78,10 +82,12 @@ async def execute_installation(request: InstallRequest):
                 "db_name": db.db_name,
                 "db_user": db.db_user,
                 "db_password": db.db_password,
+                "charset": db.charset,
                 "minsize": db.minsize,
                 "maxsize": db.maxsize,
                 "timeout": db.timeout,
-                "command_timeout": db.command_timeout
+                "command_timeout": db.command_timeout,
+                "auto_create_db": db.auto_create_db
             },
             admin_config={
                 "username": request.admin.username,

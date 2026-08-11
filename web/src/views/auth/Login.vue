@@ -1,10 +1,10 @@
-﻿<template>
+<template>
   <div class="login-container">
     <div class="login-card">
       <div class="login-header">
         <img src="@/assets/logo.svg" alt="logo" class="logo" />
-        <h1>笑话面对面</h1>
-        <p>管理后台</p>
+        <h1>{{ config.frontend_name }}</h1>
+        <p>{{ config.backend_name }}</p>
       </div>
 
       <el-form
@@ -51,11 +51,12 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { getSystemConfig } from '@/api/common'
 
 const router = useRouter()
 const route = useRoute()
@@ -69,10 +70,32 @@ const form = ref({
   password: ''
 })
 
+const config = reactive({
+  frontend_name: '笑话面对面',
+  backend_name: '管理后台'
+})
+
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
+
+onMounted(async () => {
+  try {
+    const res = await getSystemConfig()
+    const data = res.data || res
+    if (data.frontend_name) {
+      config.frontend_name = data.frontend_name
+    }
+    if (data.backend_name) {
+      config.backend_name = data.backend_name
+    }
+    // 更新浏览器标题
+    document.title = `${config.backend_name} - 登录`
+  } catch (e) {
+    // 失败则使用默认值
+  }
+})
 
 const handleLogin = async () => {
   await formRef.value.validate()
@@ -86,9 +109,6 @@ const handleLogin = async () => {
     console.log('Token saved:', savedToken ? 'Yes' : 'No', savedToken?.substring(0, 20) + '...')
 
     ElMessage.success('登录成功')
-
-    // 使用 nextTick 确保状态更新后再跳转
-    await nextTick()
 
     const redirect = route.query.redirect || '/panel/dashboard'
     router.push(redirect)
@@ -156,5 +176,3 @@ const handleLogin = async () => {
   font-size: 14px;
 }
 </style>
-
-

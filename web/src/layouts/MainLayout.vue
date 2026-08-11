@@ -4,7 +4,7 @@
     <el-aside :width="isCollapse ? '64px' : '220px'" class="aside">
       <div class="logo">
         <img src="@/assets/logo.svg" alt="logo" class="logo-img" />
-        <span v-show="!isCollapse" class="logo-text">AI Panel</span>
+        <span v-show="!isCollapse" class="logo-text">{{ systemStore.backend_name || 'AI Panel' }}</span>
       </div>
 
       <el-menu
@@ -157,6 +157,7 @@ import {
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useMenuStore } from '@/stores/menu'
+import { useSystemStore } from '@/stores/system'
 import { changePassword } from '@/api/auth'
 import ApprovalPrompt from '@/views/approval/ApprovalPrompt.vue'
 import GlobalApproval from '@/components/GlobalApproval.vue'
@@ -219,6 +220,7 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const menuStore = useMenuStore()
+const systemStore = useSystemStore()
 
 const isCollapse = ref(false)
 const passwordVisible = ref(false)
@@ -346,6 +348,7 @@ const submitPassword = async () => {
 
 // 组件挂载时加载菜单
 onMounted(async () => {
+  await systemStore.loadConfig()
   if (!menuStore.isLoaded) {
     await menuStore.fetchUserMenus()
   }

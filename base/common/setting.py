@@ -179,11 +179,18 @@ class Settings(BaseSettings):
 	app_description: str = config.config.get("app", "description", fallback="AIPanelAdmin API Documentation")
 	app_version: str = config.config.get("app", "version", fallback="0.1.0")
 	debug: bool = config.config.getboolean("app", "debug", fallback=True)
+	frontend_name: str = config.config.get("app", "frontend_name", fallback="笑话面对面")
+	backend_name: str = config.config.get("app", "backend_name", fallback="AIPanelAdmin 管理后台")
 	db_host: str = db_host
 	db_name: str = db_name
 	db_user: str = db_user
 	db_password: str = db_password
 	db_port: int = db_port
+	# 连接池配置
+	minsize: int = minsize
+	maxsize: int = maxsize
+	timeout: int = timeout
+	command_timeout: int = command_timeout
 	# Redis配置
 	REDIS_ENABLED: bool = config.config.getboolean("redis", "enabled", fallback=False)
 	REDIS_HOST: str = config.config.get("redis", "host", fallback="127.0.0.1")
