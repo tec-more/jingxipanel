@@ -18,6 +18,13 @@ AUDIT_EXCLUDE_MODELS = [
 
 
 def is_audit_enabled() -> bool:
+    # 数据库未初始化时（如系统未安装），禁用审计
+    try:
+        from tortoise import Tortoise
+        if not getattr(Tortoise, '_inited', False):
+            return False
+    except Exception:
+        return False
     return getattr(settings, 'AUDIT_ENABLED', True)
 
 

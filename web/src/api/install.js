@@ -9,6 +9,11 @@ export function getInstallStatus() {
   return request.get('/v1/install/status')
 }
 
+// 环境检测
+export function envCheck() {
+  return request.get('/v1/install/env-check')
+}
+
 // 测试数据库连接（60秒超时：含创建数据库操作）
 export function testDatabaseConnection(data) {
   return dbTestRequest.post('/v1/install/test-database', data)

@@ -9,6 +9,15 @@ from base.common.setting import settings
 from base.plugins.audit.models.audit_log import AuditLog, AuditConfig
 
 
+def _is_tortoise_ready() -> bool:
+    """检查 Tortoise ORM 是否已初始化（数据库可用）"""
+    try:
+        from tortoise import Tortoise
+        return getattr(Tortoise, '_inited', False)
+    except Exception:
+        return False
+
+
 class AuditMiddleware(BaseHTTPMiddleware):
     """审计中间件"""
 
@@ -21,6 +30,10 @@ class AuditMiddleware(BaseHTTPMiddleware):
             "/redoc",
             "/static",
             "/favicon.ico",
+            "/v1/install",
+            "/api/v1/install",
+            "/v1/common",
+            "/api/v1/common",
         ]
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -32,6 +45,10 @@ class AuditMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         
         if not getattr(settings, 'AUDIT_ENABLED', True) or not getattr(settings, 'AUDIT_LOG_HTTP_REQUESTS', True):
+            return await call_next(request)
+        
+        # 数据库未初始化时跳过审计记录（如系统未安装状态）
+        if not _is_tortoise_ready():
             return await call_next(request)
         
         module_name = self._extract_module_name(path)

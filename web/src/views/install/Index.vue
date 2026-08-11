@@ -35,7 +35,7 @@
                 <span>环境检测</span>
               </div>
             </template>
-            <div class="env-items">
+            <div class="env-items" v-loading="envChecking" element-loading-text="正在检测环境...">
               <div class="env-item" v-for="item in envChecks" :key="item.name">
                 <span class="env-name">{{ item.name }}</span>
                 <span class="env-value" :class="item.status">
@@ -46,6 +46,13 @@
                 </span>
                 <span class="env-desc">{{ item.desc }}</span>
               </div>
+              <el-empty v-if="!envChecking && envChecks.length === 0" description="暂无检测数据" />
+            </div>
+            <div class="env-actions" v-if="!envChecking">
+              <el-button size="small" @click="doEnvCheck">
+                <el-icon><Refresh /></el-icon>
+                重新检测
+              </el-button>
             </div>
           </el-card>
           <div class="step-actions">
@@ -304,9 +311,9 @@ import { ElMessage } from 'element-plus'
 import {
   Setting, Monitor, Coin, User, CircleCheck, CircleClose,
   Warning, ArrowRight, ArrowLeft, Connection, Download,
-  Loading, QuestionFilled
+  Loading, QuestionFilled, Refresh
 } from '@element-plus/icons-vue'
-import { getInstallStatus, testDatabaseConnection, executeInstallation } from '@/api/install'
+import { getInstallStatus, testDatabaseConnection, executeInstallation, envCheck } from '@/api/install'
 import { useSystemStore } from '@/stores/system'
 
 const router = useRouter()
@@ -316,6 +323,9 @@ const systemStore = useSystemStore()
 const currentStep = ref(0)
 const installReady = ref(false)
 
+// 环境检测加载中
+const envChecking = ref(true)
+
 // 步骤状态
 const stepStatus = computed(() => {
   if (installing.value) return 'process'
@@ -323,16 +333,11 @@ const stepStatus = computed(() => {
   return 'wait'
 })
 
-// 环境检测
-const envChecks = ref([
-  { name: '操作系统', value: 'Windows / Linux', status: 'success', desc: '支持的操作系统' },
-  { name: 'Python 版本', value: '3.8+', status: 'success', desc: '当前版本满足要求' },
-  { name: '数据库', value: 'PostgreSQL / openGauss', status: 'warning', desc: '请在下一步配置数据库连接' },
-  { name: '文件写入权限', value: '检测中...', status: 'success', desc: '确保 config.conf 和 storage 可写' }
-])
+// 环境检测（动态获取）
+const envChecks = ref([])
 
 const envReady = computed(() => {
-  return envChecks.value.every(item => item.status !== 'error')
+  return envChecks.value.length > 0 && envChecks.value.every(item => item.status !== 'error')
 })
 
 // 数据库表单
@@ -636,10 +641,57 @@ const checkInstallStatus = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   systemStore.loadConfig().catch(() => {})
   checkInstallStatus()
+  await doEnvCheck()
 })
+
+// 执行环境检测
+const doEnvCheck = async () => {
+  envChecking.value = true
+  try {
+    const res = await envCheck()
+    const data = res.data || res
+    const items = []
+
+    // 操作系统
+    if (data.os) {
+      items.push({
+        name: '操作系统',
+        value: data.os.display || data.os.name,
+        status: data.os.status || 'success',
+        desc: data.os.desc || '支持的操作系统'
+      })
+    }
+
+    // Python版本
+    if (data.python) {
+      items.push({
+        name: 'Python 版本',
+        value: data.python.version,
+        status: data.python.status || 'success',
+        desc: data.python.desc || ''
+      })
+    }
+
+    // 其他检测项
+    if (data.checks && Array.isArray(data.checks)) {
+      items.push(...data.checks)
+    }
+
+    envChecks.value = items
+  } catch (e) {
+    console.error('环境检测失败:', e)
+    envChecks.value = [
+      { name: '操作系统', value: '检测失败', status: 'error', desc: '无法获取操作系统信息' },
+      { name: 'Python 版本', value: '检测失败', status: 'error', desc: '无法获取 Python 版本' },
+      { name: '文件写入权限', value: '检测失败', status: 'error', desc: '请检查后端服务是否正常' }
+    ]
+  } finally {
+    envChecking.value = false
+  }
+}
 
 onUnmounted(() => {
   if (installTimer) {
@@ -731,6 +783,12 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.env-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .env-item {

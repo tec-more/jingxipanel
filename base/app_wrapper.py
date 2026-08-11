@@ -84,6 +84,20 @@ class ASGIAppWithPrefix:
                 await self.app(scope, receive, send)
                 return
 
+            # 检查系统安装状态（对非安装/公共路径进行拦截）
+            is_installed = self._check_install_status()
+
+            if not is_installed:
+                # 未安装时，其他 API 请求返回 503（避免触发数据库操作导致崩溃）
+                if original_path.startswith(self.prefix) or original_path.startswith("/v1/"):
+                    from starlette.responses import JSONResponse
+                    response = JSONResponse(
+                        status_code=503,
+                        content={"detail": "系统未安装，请先完成安装", "code": 503, "redirect": "/install"}
+                    )
+                    await response(scope, receive, send)
+                    return
+
             # 如果路径以 prefix 开头，移除它（API 路径）
             if original_path.startswith(self.prefix):
                 new_path = original_path[len(self.prefix):] or "/"
@@ -102,26 +116,18 @@ class ASGIAppWithPrefix:
                 await self.app(scope, receive, send)
                 return
 
-            # 非 API 路径 - 检查安装状态
+            # 非 API 路径 - 返回前端页面
             from starlette.responses import FileResponse, HTMLResponse, RedirectResponse
             import os
             from pathlib import Path
 
             static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web", "dist")
             
-            # 检查系统安装状态
-            is_installed = self._check_install_status()
-            
             # 如果未安装且访问的不是安装页面，重定向到安装页面
             if not is_installed and not original_path.startswith("/install"):
-                # 如果是 /install 路径，返回前端（让前端路由处理安装向导）
-                if original_path.startswith("/install"):
-                    pass  # 继续执行下面的逻辑
-                else:
-                    # 重定向到 /install
-                    response = RedirectResponse(url="/install", status_code=302)
-                    await response(scope, receive, send)
-                    return
+                response = RedirectResponse(url="/install", status_code=302)
+                await response(scope, receive, send)
+                return
             
             # 处理 /install 路径 - 返回前端让前端路由处理
             if original_path.startswith("/install"):
