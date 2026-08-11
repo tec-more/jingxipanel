@@ -22,45 +22,100 @@ def _trigger_restart(delay_seconds: int = 3):
     触发应用自动重启（跨平台，兼容开发模式）。
 
     创建一个 detached 子进程，延迟指定秒数后终止当前进程并启动新进程。
-    支持 Windows / Linux / macOS，自动检测开发模式（reload）。
+    支持 Windows / Linux / macOS，自动处理 uvicorn reload 父子进程。
+
+    进程关系说明：
+      - 生产模式（无 reload）：当前进程 = 实际服务进程，直接 kill 当前 PID
+      - 开发模式（有 reload）：当前进程 = worker 子进程，父进程 = uvicorn reloader
+        只 kill worker 会被父进程重新 fork，所以要 kill 父进程（以及其下的整个进程树）
     """
-    current_pid = os.getpid()
     python_executable = sys.executable
-    # 项目根目录（config.conf 所在目录）
     base_dir = str(settings.base_path)
     script_path = os.path.join(base_dir, "run.py")
-    # 检测开发模式
-    is_dev_mode = os.environ.get("UVICORN_RELOAD", "false").lower() == "true"
-    # 应用端口
-    app_port = os.environ.get("UVICORN_PORT", str(getattr(settings, "app_port", 9998)))
+    app_port = str(getattr(settings, "app_port", 9998))
+
+    current_pid = os.getpid()
+    try:
+        parent_pid = os.getppid()
+    except AttributeError:
+        parent_pid = None
+
+    # 判断是否在 uvicorn reload 模式下（当前进程是 worker 子进程）
+    is_reload_worker = _is_uvicorn_reload_worker(parent_pid)
+
+    if is_reload_worker and parent_pid:
+        # 开发模式：终止 uvicorn reloader 父进程（会连带杀掉 worker）
+        target_pid = parent_pid
+        is_dev_mode = True
+    else:
+        # 生产模式：终止当前进程
+        target_pid = current_pid
+        is_dev_mode = False
 
     system = platform.system()
 
     if system == "Windows":
         _restart_windows(
             base_dir, script_path, python_executable,
-            current_pid, delay_seconds, is_dev_mode, app_port
+            current_pid, target_pid, delay_seconds, is_dev_mode, app_port
         )
     else:
-        # Linux / macOS 统一使用 shell 脚本
         _restart_unix(
             base_dir, script_path, python_executable,
-            current_pid, delay_seconds, is_dev_mode, app_port
+            current_pid, target_pid, delay_seconds, is_dev_mode, app_port
         )
 
 
-def _restart_windows(base_dir, script_path, python_executable, current_pid, delay, is_dev, app_port):
+def _is_uvicorn_reload_worker(parent_pid) -> bool:
+    """
+    判断当前进程是否是 uvicorn reload 模式下的 worker 子进程。
+    依据：父进程的命令行包含 "uvicorn" 或 run.py 启动脚本（即父进程是 reloader）。
+    """
+    if not parent_pid:
+        return False
+    system = platform.system()
+    try:
+        if system == "Windows":
+            # Windows: 使用 wmic 查询父进程命令行
+            result = subprocess.run(
+                ["wmic", "process", "where", f"ProcessId={parent_pid}", "get", "CommandLine", "/value"],
+                capture_output=True, text=True, timeout=5
+            )
+            line = result.stdout.strip()
+            return ("uvicorn" in line.lower()) or ("run.py" in line)
+        else:
+            # Linux / macOS: 使用 ps -p PID -o args=
+            result = subprocess.run(
+                ["ps", "-p", str(parent_pid), "-o", "args="],
+                capture_output=True, text=True, timeout=5
+            )
+            line = result.stdout.strip()
+            return ("uvicorn" in line.lower()) or ("run.py" in line)
+    except Exception:
+        # 失败时安全回退：按生产模式处理（只 kill 当前 PID）
+        return False
+
+
+def _restart_windows(base_dir, script_path, python_executable, current_pid, target_pid, delay, is_dev, app_port):
     """Windows 平台重启脚本"""
-    # 开发模式设置环境变量
     dev_env = "set UVICORN_RELOAD=true\r\n" if is_dev else ""
+    # 当 target_pid != current_pid（即 dev 模式）时，先 kill 父进程，再确保当前进程也被 kill
+    if target_pid != current_pid:
+        kill_cmds = f"""echo [重启脚本] 正在终止 uvicorn reloader 父进程 PID={target_pid}（含子进程）...
+taskkill /PID {target_pid} /F /T >nul 2>&1
+echo [重启脚本] 正在兜底终止 worker 进程 PID={current_pid}...
+taskkill /PID {current_pid} /F /T >nul 2>&1
+"""
+    else:
+        kill_cmds = f"""echo [重启脚本] 正在终止服务进程 PID={target_pid}...
+taskkill /PID {target_pid} /F /T >nul 2>&1
+"""
 
     bat_content = f"""@echo off
 chcp 65001 >nul 2>&1
 echo [重启脚本] 等待 {delay} 秒...
 timeout /t {delay} /nobreak >nul
-echo [重启脚本] 正在终止旧进程 PID={current_pid}...
-taskkill /PID {current_pid} /F /T >nul 2>&1
-echo [重启脚本] 等待端口 {app_port} 释放...
+{kill_cmds}echo [重启脚本] 等待端口 {app_port} 释放...
 :wait_port
 timeout /t 1 /nobreak >nul
 netstat -ano | findstr ":{app_port} " | findstr "LISTENING" >nul 2>&1
@@ -82,19 +137,37 @@ set UVICORN_PORT={app_port}
     )
 
 
-def _restart_unix(base_dir, script_path, python_executable, current_pid, delay, is_dev, app_port):
+def _restart_unix(base_dir, script_path, python_executable, current_pid, target_pid, delay, is_dev, app_port):
     """Linux / macOS 平台重启脚本"""
-    # 开发模式设置环境变量
     dev_env = "export UVICORN_RELOAD=true\n" if is_dev else ""
+
+    if target_pid != current_pid:
+        # dev 模式：先 kill 父进程（uvicorn reloader）进程组，再兜底 kill 当前进程
+        kill_cmds = f"""echo "[重启脚本] 正在终止 uvicorn reloader 父进程 PID={target_pid}（含子进程）..."
+# 终止整个进程组
+pkill -TERM -P {target_pid} 2>/dev/null
+kill -TERM {target_pid} 2>/dev/null
+sleep 2
+# 强制清理残余
+pkill -9 -P {target_pid} 2>/dev/null
+kill -9 {target_pid} 2>/dev/null
+echo "[重启脚本] 正在兜底终止 worker 进程 PID={current_pid}..."
+kill -9 {current_pid} 2>/dev/null
+"""
+    else:
+        # 生产模式：终止当前进程及其子进程
+        kill_cmds = f"""echo "[重启脚本] 正在终止服务进程 PID={target_pid}..."
+pkill -TERM -P {target_pid} 2>/dev/null
+kill -TERM {target_pid} 2>/dev/null
+sleep 2
+pkill -9 -P {target_pid} 2>/dev/null
+kill -9 {target_pid} 2>/dev/null
+"""
 
     sh_content = f"""#!/bin/bash
 echo "[重启脚本] 等待 {delay} 秒..."
 sleep {delay}
-echo "[重启脚本] 正在终止旧进程 PID={current_pid}..."
-# 终止进程树（先 kill 子进程，再 kill 主进程）
-pkill -P {current_pid} 2>/dev/null
-kill -9 {current_pid} 2>/dev/null
-echo "[重启脚本] 等待端口 {app_port} 释放..."
+{kill_cmds}echo "[重启脚本] 等待端口 {app_port} 释放..."
 while lsof -i :{app_port} -t > /dev/null 2>&1; do
     sleep 1
 done
