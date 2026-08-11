@@ -74,6 +74,16 @@ class ASGIAppWithPrefix:
                 await self.app(scope, receive, send)
                 return
 
+            # 公共配置 API 路径始终可访问（用于前端检查安装状态）
+            if original_path.startswith("/api/v1/common") or original_path.startswith("/v1/common"):
+                if original_path.startswith(self.prefix):
+                    new_path = original_path[len(self.prefix):] or "/"
+                    scope = dict(scope)
+                    scope["path"] = new_path
+                    scope["root_path"] = self.prefix
+                await self.app(scope, receive, send)
+                return
+
             # 如果路径以 prefix 开头，移除它（API 路径）
             if original_path.startswith(self.prefix):
                 new_path = original_path[len(self.prefix):] or "/"

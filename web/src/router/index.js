@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useMenuStore } from '@/stores/menu'
 import { useSystemStore } from '@/stores/system'
+import { getInstallStatus } from '@/api/install'
 
 const routes = [
   {
@@ -384,7 +385,20 @@ router.beforeEach(async (to, from, next) => {
   const isLoggedIn = !!token
   
   // ---- 安装状态检查 ----
-  const isInstalled = localStorage.getItem('system_installed') === 'true'
+  // 同时检查 localStorage 缓存和后端真实状态
+  let isInstalled = localStorage.getItem('system_installed') === 'true'
+  if (isInstalled) {
+    try {
+      const res = await getInstallStatus()
+      const data = res.data || res
+      if (data.installed === false) {
+        isInstalled = false
+        localStorage.removeItem('system_installed')
+      }
+    } catch (_) {
+      // 后端不可达时保持 localStorage 的判断
+    }
+  }
   
   // 如果未安装，且目标不是安装页面，重定向到安装页面
   if (!isInstalled && to.path !== '/install') {
