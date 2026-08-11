@@ -197,7 +197,16 @@ export const useMenuStore = defineStore('menu', {
         
         console.log('[菜单Store] 菜单路径:', menu.path, '转换后:', routePath)
 
-        if (menu.component) {
+        let componentPath = menu.component
+        if (!componentPath && routePath) {
+          if (menu.children && menu.children.length > 0) {
+            componentPath = null
+          } else {
+            componentPath = routePath
+          }
+        }
+
+        if (componentPath) {
           const route = {
             path: routePath,
             name: menu.name,
@@ -209,8 +218,8 @@ export const useMenuStore = defineStore('menu', {
             }
           }
 
-          const component = loadComponent(menu.component)
-          console.log('[菜单Store] 加载组件:', menu.component, '结果:', component)
+          const component = loadComponent(componentPath)
+          console.log('[菜单Store] 加载组件:', componentPath, '结果:', component)
           if (component) {
             route.component = component
           } else {
