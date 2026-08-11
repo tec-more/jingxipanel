@@ -271,6 +271,22 @@
                 <span>{{ log.message }}</span>
               </div>
             </div>
+            <!-- 重启中提示 -->
+            <div v-if="restarting" class="restart-status">
+              <el-alert
+                title="正在重启服务，请稍候..."
+                type="info"
+                :closable="false"
+                show-icon
+              >
+                <template #default>
+                  <div class="restart-info">
+                    <el-icon class="is-loading"><Loading /></el-icon>
+                    <span>服务正在重启中（已等待 {{ restartCount * 2 }} 秒）...</span>
+                  </div>
+                </template>
+              </el-alert>
+            </div>
           </div>
         </div>
 
@@ -421,6 +437,10 @@ const installStatus = ref('')
 const installLogs = ref([])
 const installResult = ref(null)
 let installTimer = null
+
+// 重启相关状态
+const restarting = ref(false)
+const restartCount = ref(0)
 
 // 下一步
 const nextStep = async () => {
@@ -591,6 +611,7 @@ const handleExecuteInstall = async () => {
     installProgress.value = 100
     installStatus.value = 'success'
     installLogs.value.push({ type: 'success', message: '系统安装成功！' })
+    installLogs.value.push({ type: 'info', message: '正在自动重启服务...' })
     
     const data = res.data || res
     installResult.value = data
@@ -598,11 +619,11 @@ const handleExecuteInstall = async () => {
     // 保存安装状态到 localStorage
     localStorage.setItem('system_installed', 'true')
     localStorage.setItem('install_time', new Date().toISOString())
-    
-    setTimeout(() => {
-      currentStep.value = 4
-      installing.value = false
-    }, 1000)
+
+    // 安装成功后开始轮询后端重启状态
+    restarting.value = true
+    restartCount.value = 0
+    await pollRestartStatus()
 
   } catch (e) {
     clearInterval(progressTimer)
@@ -614,6 +635,45 @@ const handleExecuteInstall = async () => {
     installing.value = false
     ElMessage.error(`安装失败：${e.response?.data?.detail || e.message}`)
   }
+}
+
+// 轮询后端重启状态
+const pollRestartStatus = async () => {
+  const maxRetries = 30 // 最多重试30次（约60秒）
+  const interval = 2000 // 每2秒轮询一次
+
+  const poll = async () => {
+    restartCount.value++
+    if (restartCount.value > maxRetries) {
+      // 超时，停止轮询
+      restarting.value = false
+      installLogs.value.push({ type: 'warning', message: '重启超时，请手动刷新页面' })
+      installing.value = false
+      currentStep.value = 4
+      return
+    }
+
+    try {
+      const res = await getInstallStatus()
+      const data = res.data || res
+      if (data.installed === true) {
+        // 后端已恢复且已安装
+        restarting.value = false
+        installLogs.value.push({ type: 'success', message: '服务重启成功！' })
+        installing.value = false
+        currentStep.value = 4
+        return
+      }
+      // 后端已恢复但未安装（不应该发生），继续等待
+      setTimeout(poll, interval)
+    } catch (e) {
+      // 后端尚未恢复（连接失败），继续等待
+      setTimeout(poll, interval)
+    }
+  }
+
+  // 等待3秒后开始轮询（给后端时间关闭旧进程）
+  setTimeout(poll, 3000)
 }
 
 // 跳转到登录页
@@ -642,7 +702,17 @@ const checkInstallStatus = async () => {
 }
 
 onMounted(async () => {
-  systemStore.loadConfig().catch(() => {})
+  // 加载现有配置并填充表单
+  try {
+    await systemStore.loadConfig()
+    // 用 config.conf 中的现有值填充表单（支持重新安装时回显）
+    if (systemStore.frontend_name) {
+      serverForm.frontend_name = systemStore.frontend_name
+    }
+    if (systemStore.backend_name) {
+      serverForm.backend_name = systemStore.backend_name
+    }
+  } catch (_) {}
   checkInstallStatus()
   await doEnvCheck()
 })
@@ -789,6 +859,25 @@ onUnmounted(() => {
   margin-top: 10px;
   display: flex;
   justify-content: flex-end;
+}
+
+.restart-status {
+  margin-top: 16px;
+
+  .restart-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .el-icon.is-loading {
+      animation: rotating 1.5s linear infinite;
+    }
+  }
+}
+
+@keyframes rotating {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .env-item {

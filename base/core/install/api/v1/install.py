@@ -8,8 +8,72 @@ from base.core.install.schemas.install import (
 )
 from base.core.install.services.install_service import InstallService
 from base.common.response import success_response
+import os
+import sys
+import platform
+import subprocess
+import asyncio
 
 router = APIRouter(prefix="/v1/install", tags=["系统安装"])
+
+
+def _trigger_restart(delay_seconds: int = 3):
+    """
+    触发应用自动重启。
+    创建一个 detached 子进程，延迟指定秒数后终止当前进程并启动新进程。
+    """
+    current_pid = os.getpid()
+    python_executable = sys.executable
+    # run.py 的路径（项目根目录下）
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+    script_path = os.path.join(base_dir, "run.py")
+
+    if platform.system() == "Windows":
+        # Windows: 使用批处理脚本
+        bat_content = f"""@echo off
+chcp 65001 >nul 2>&1
+echo [重启脚本] 等待 {delay_seconds} 秒...
+timeout /t {delay_seconds} /nobreak >nul
+echo [重启脚本] 正在终止旧进程 PID={current_pid}...
+taskkill /PID {current_pid} /F /T >nul 2>&1
+timeout /t 2 /nobreak >nul
+echo [重启脚本] 正在启动新进程...
+cd /d "{base_dir}"
+"{python_executable}" "{script_path}"
+"""
+        bat_path = os.path.join(base_dir, "_restart.bat")
+        with open(bat_path, 'w', encoding='utf-8') as f:
+            f.write(bat_content)
+
+        # 启动 detached 进程
+        subprocess.Popen(
+            ['cmd', '/c', bat_path],
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+            close_fds=True,
+            cwd=base_dir
+        )
+    else:
+        # Linux/Mac: 使用 shell 脚本
+        sh_content = f"""#!/bin/bash
+echo "[重启脚本] 等待 {delay_seconds} 秒..."
+sleep {delay_seconds}
+echo "[重启脚本] 正在终止旧进程 PID={current_pid}..."
+kill -9 {current_pid} 2>/dev/null
+sleep 2
+echo "[重启脚本] 正在启动新进程..."
+cd "{base_dir}"
+"{python_executable}" "{script_path}"
+"""
+        sh_path = os.path.join(base_dir, "_restart.sh")
+        with open(sh_path, 'w', encoding='utf-8') as f:
+            f.write(sh_content)
+        os.chmod(sh_path, 0o755)
+
+        subprocess.Popen(
+            ['bash', sh_path],
+            start_new_session=True,
+            cwd=base_dir
+        )
 
 
 @router.get("/env-check", summary="环境检测")
@@ -246,18 +310,24 @@ async def execute_installation(request: InstallRequest):
             },
             server_config={
                 "app_port": request.server.app_port,
-                "app_debug": request.server.app_debug
+                "app_debug": request.server.app_debug,
+                "frontend_name": request.server.frontend_name,
+                "backend_name": request.server.backend_name
             }
         )
-        
+
+        # 安装成功后触发自动重启（延迟3秒，确保响应已发送）
+        _trigger_restart(delay_seconds=3)
+
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
-                "message": "系统安装成功",
+                "message": "系统安装成功，正在自动重启...",
                 "data": {
                     "admin_username": request.admin.username,
-                    "admin_email": request.admin.email
+                    "admin_email": request.admin.email,
+                    "need_restart": True
                 }
             }
         )
