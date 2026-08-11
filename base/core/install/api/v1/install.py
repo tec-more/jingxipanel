@@ -8,72 +8,113 @@ from base.core.install.schemas.install import (
 )
 from base.core.install.services.install_service import InstallService
 from base.common.response import success_response
+from base.common.setting import settings
 import os
 import sys
 import platform
 import subprocess
-import asyncio
 
 router = APIRouter(prefix="/v1/install", tags=["系统安装"])
 
 
 def _trigger_restart(delay_seconds: int = 3):
     """
-    触发应用自动重启。
+    触发应用自动重启（跨平台，兼容开发模式）。
+
     创建一个 detached 子进程，延迟指定秒数后终止当前进程并启动新进程。
+    支持 Windows / Linux / macOS，自动检测开发模式（reload）。
     """
     current_pid = os.getpid()
     python_executable = sys.executable
-    # run.py 的路径（项目根目录下）
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+    # 项目根目录（config.conf 所在目录）
+    base_dir = str(settings.base_path)
     script_path = os.path.join(base_dir, "run.py")
+    # 检测开发模式
+    is_dev_mode = os.environ.get("UVICORN_RELOAD", "false").lower() == "true"
+    # 应用端口
+    app_port = os.environ.get("UVICORN_PORT", str(getattr(settings, "app_port", 9998)))
 
-    if platform.system() == "Windows":
-        # Windows: 使用批处理脚本
-        bat_content = f"""@echo off
-chcp 65001 >nul 2>&1
-echo [重启脚本] 等待 {delay_seconds} 秒...
-timeout /t {delay_seconds} /nobreak >nul
-echo [重启脚本] 正在终止旧进程 PID={current_pid}...
-taskkill /PID {current_pid} /F /T >nul 2>&1
-timeout /t 2 /nobreak >nul
-echo [重启脚本] 正在启动新进程...
-cd /d "{base_dir}"
-"{python_executable}" "{script_path}"
-"""
-        bat_path = os.path.join(base_dir, "_restart.bat")
-        with open(bat_path, 'w', encoding='utf-8') as f:
-            f.write(bat_content)
+    system = platform.system()
 
-        # 启动 detached 进程
-        subprocess.Popen(
-            ['cmd', '/c', bat_path],
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
-            close_fds=True,
-            cwd=base_dir
+    if system == "Windows":
+        _restart_windows(
+            base_dir, script_path, python_executable,
+            current_pid, delay_seconds, is_dev_mode, app_port
         )
     else:
-        # Linux/Mac: 使用 shell 脚本
-        sh_content = f"""#!/bin/bash
-echo "[重启脚本] 等待 {delay_seconds} 秒..."
-sleep {delay_seconds}
-echo "[重启脚本] 正在终止旧进程 PID={current_pid}..."
-kill -9 {current_pid} 2>/dev/null
-sleep 2
-echo "[重启脚本] 正在启动新进程..."
-cd "{base_dir}"
-"{python_executable}" "{script_path}"
-"""
-        sh_path = os.path.join(base_dir, "_restart.sh")
-        with open(sh_path, 'w', encoding='utf-8') as f:
-            f.write(sh_content)
-        os.chmod(sh_path, 0o755)
-
-        subprocess.Popen(
-            ['bash', sh_path],
-            start_new_session=True,
-            cwd=base_dir
+        # Linux / macOS 统一使用 shell 脚本
+        _restart_unix(
+            base_dir, script_path, python_executable,
+            current_pid, delay_seconds, is_dev_mode, app_port
         )
+
+
+def _restart_windows(base_dir, script_path, python_executable, current_pid, delay, is_dev, app_port):
+    """Windows 平台重启脚本"""
+    # 开发模式设置环境变量
+    dev_env = "set UVICORN_RELOAD=true\r\n" if is_dev else ""
+
+    bat_content = f"""@echo off
+chcp 65001 >nul 2>&1
+echo [重启脚本] 等待 {delay} 秒...
+timeout /t {delay} /nobreak >nul
+echo [重启脚本] 正在终止旧进程 PID={current_pid}...
+taskkill /PID {current_pid} /F /T >nul 2>&1
+echo [重启脚本] 等待端口 {app_port} 释放...
+:wait_port
+timeout /t 1 /nobreak >nul
+netstat -ano | findstr ":{app_port} " | findstr "LISTENING" >nul 2>&1
+if %errorlevel% equ 0 goto wait_port
+echo [重启脚本] 端口已释放，正在启动新进程...
+cd /d "{base_dir}"
+set UVICORN_PORT={app_port}
+{dev_env}"{python_executable}" "{script_path}"
+"""
+    bat_path = os.path.join(base_dir, "_restart.bat")
+    with open(bat_path, 'w', encoding='utf-8') as f:
+        f.write(bat_content)
+
+    subprocess.Popen(
+        ['cmd', '/c', bat_path],
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+        close_fds=True,
+        cwd=base_dir
+    )
+
+
+def _restart_unix(base_dir, script_path, python_executable, current_pid, delay, is_dev, app_port):
+    """Linux / macOS 平台重启脚本"""
+    # 开发模式设置环境变量
+    dev_env = "export UVICORN_RELOAD=true\n" if is_dev else ""
+
+    sh_content = f"""#!/bin/bash
+echo "[重启脚本] 等待 {delay} 秒..."
+sleep {delay}
+echo "[重启脚本] 正在终止旧进程 PID={current_pid}..."
+# 终止进程树（先 kill 子进程，再 kill 主进程）
+pkill -P {current_pid} 2>/dev/null
+kill -9 {current_pid} 2>/dev/null
+echo "[重启脚本] 等待端口 {app_port} 释放..."
+while lsof -i :{app_port} -t > /dev/null 2>&1; do
+    sleep 1
+done
+# 如果 lsof 不可用，用额外等待替代
+sleep 2
+echo "[重启脚本] 端口已释放，正在启动新进程..."
+cd "{base_dir}"
+export UVICORN_PORT={app_port}
+{dev_env}exec "{python_executable}" "{script_path}"
+"""
+    sh_path = os.path.join(base_dir, "_restart.sh")
+    with open(sh_path, 'w', encoding='utf-8') as f:
+        f.write(sh_content)
+    os.chmod(sh_path, 0o755)
+
+    subprocess.Popen(
+        ['bash', sh_path],
+        start_new_session=True,
+        cwd=base_dir
+    )
 
 
 @router.get("/env-check", summary="环境检测")
