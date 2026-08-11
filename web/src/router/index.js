@@ -396,7 +396,9 @@ router.beforeEach(async (to, from, next) => {
         localStorage.removeItem('system_installed')
       }
     } catch (_) {
-      // 后端不可达时保持 localStorage 的判断
+      // 后端不可达但本地标记为已安装，说明状态不一致，视为未安装
+      isInstalled = false
+      localStorage.removeItem('system_installed')
     }
   }
   

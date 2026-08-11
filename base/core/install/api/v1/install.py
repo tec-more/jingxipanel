@@ -7,20 +7,21 @@ from base.core.install.schemas.install import (
     TestConnectionResponse
 )
 from base.core.install.services.install_service import InstallService
+from base.common.response import success_response
 
 router = APIRouter(prefix="/v1/install", tags=["系统安装"])
 
 
-@router.get("/status", response_model=InstallStatusResponse, summary="获取安装状态")
+@router.get("/status", summary="获取安装状态")
 async def get_install_status():
     """获取系统安装状态"""
     installed = InstallService.is_installed()
     
-    return InstallStatusResponse(
-        installed=installed,
-        current_step=4 if installed else 0,
-        message="系统已安装" if installed else "系统未安装，需要执行安装"
-    )
+    return success_response({
+        "installed": installed,
+        "current_step": 4 if installed else 0,
+        "message": "系统已安装" if installed else "系统未安装，需要执行安装"
+    })
 
 
 @router.post("/test-database", response_model=TestConnectionResponse, summary="测试数据库连接")

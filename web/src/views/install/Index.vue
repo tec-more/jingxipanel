@@ -5,9 +5,9 @@
       <div class="install-header">
         <h1 class="install-title">
           <el-icon class="title-icon"><Setting /></el-icon>
-          AIPanelAdmin 系统安装向导
+          {{ systemStore.backend_name || '系统' }} 安装向导
         </h1>
-        <p class="install-desc">欢迎使用 AIPanelAdmin，请按照以下步骤完成系统安装</p>
+        <p class="install-desc">欢迎使用 {{ systemStore.backend_name || '本系统' }}，请按照以下步骤完成系统安装</p>
       </div>
 
       <!-- 步骤指示器 -->
@@ -307,8 +307,10 @@ import {
   Loading, QuestionFilled
 } from '@element-plus/icons-vue'
 import { getInstallStatus, testDatabaseConnection, executeInstallation } from '@/api/install'
+import { useSystemStore } from '@/stores/system'
 
 const router = useRouter()
+const systemStore = useSystemStore()
 
 // 当前步骤
 const currentStep = ref(0)
@@ -573,7 +575,9 @@ const handleExecuteInstall = async () => {
       },
       server: {
         app_port: serverForm.app_port,
-        app_debug: serverForm.app_debug
+        app_debug: serverForm.app_debug,
+        frontend_name: serverForm.frontend_name,
+        backend_name: serverForm.backend_name
       }
     })
 
@@ -633,6 +637,7 @@ const checkInstallStatus = async () => {
 }
 
 onMounted(() => {
+  systemStore.loadConfig().catch(() => {})
   checkInstallStatus()
 })
 
