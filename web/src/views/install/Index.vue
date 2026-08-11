@@ -218,13 +218,13 @@
             <el-row :gutter="20">
               <el-col :span="12">
                 <el-form-item label="前端名称">
-                  <el-input v-model="serverForm.frontend_name" placeholder="笑话面对面" maxlength="50" />
+                  <el-input v-model="serverForm.frontend_name" placeholder="" maxlength="50" />
                   <div class="form-tip">前端展示的系统名称</div>
                 </el-form-item>
               </el-col>
               <el-col :span="12">
                 <el-form-item label="后台名称">
-                  <el-input v-model="serverForm.backend_name" placeholder="AIPanelAdmin 管理后台" maxlength="50" />
+                  <el-input v-model="serverForm.backend_name" placeholder="" maxlength="50" />
                   <div class="form-tip">后台登录页显示的名称</div>
                 </el-form-item>
               </el-col>
@@ -401,8 +401,8 @@ const adminRules = {
 const serverForm = reactive({
   app_port: 9998,
   app_debug: false,
-  frontend_name: '笑话面对面',
-  backend_name: 'AIPanelAdmin 管理后台'
+  frontend_name: '',
+  backend_name: ''
 })
 
 const adminFormValid = ref(false)

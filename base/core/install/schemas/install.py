@@ -26,8 +26,8 @@ class ServerConfig(BaseModel):
     """服务器基础配置"""
     app_port: int = Field(default=9998, description="应用端口")
     app_debug: bool = Field(default=False, description="调试模式")
-    frontend_name: str = Field(default="笑话面对面", description="前端系统名称")
-    backend_name: str = Field(default="AIPanelAdmin 管理后台", description="后台系统名称")
+    frontend_name: str = Field(default="", description="前端系统名称")
+    backend_name: str = Field(default="", description="后台系统名称")
 
 class InstallRequest(BaseModel):
     """安装请求"""

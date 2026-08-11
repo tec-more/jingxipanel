@@ -179,7 +179,7 @@ class Settings(BaseSettings):
 	app_description: str = config.config.get("app", "description", fallback="AIPanelAdmin API Documentation")
 	app_version: str = config.config.get("app", "version", fallback="0.1.0")
 	debug: bool = config.config.getboolean("app", "debug", fallback=True)
-	frontend_name: str = config.config.get("app", "frontend_name", fallback="笑话面对面")
+	frontend_name: str = config.config.get("app", "frontend_name", fallback="")
 	backend_name: str = config.config.get("app", "backend_name", fallback="AIPanelAdmin 管理后台")
 	db_host: str = db_host
 	db_name: str = db_name

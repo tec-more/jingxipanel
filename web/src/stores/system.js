@@ -20,11 +20,11 @@ export const useSystemStore = defineStore('system', () => {
     try {
       const res = await getSystemConfig()
       const data = res.data || res
-      if (data.app_name) app_name.value = data.app_name
-      if (data.app_version) app_version.value = data.app_version
-      if (data.app_description) app_description.value = data.app_description
-      if (data.frontend_name) frontend_name.value = data.frontend_name
-      if (data.backend_name) backend_name.value = data.backend_name
+      if (data.app_name != null) app_name.value = data.app_name
+      if (data.app_version != null) app_version.value = data.app_version
+      if (data.app_description != null) app_description.value = data.app_description
+      if (data.frontend_name != null) frontend_name.value = data.frontend_name
+      if (data.backend_name != null) backend_name.value = data.backend_name
       if (typeof data.debug === 'boolean') debug.value = data.debug
       loaded.value = true
     } catch (e) {

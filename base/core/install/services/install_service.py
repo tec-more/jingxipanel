@@ -312,8 +312,8 @@ class InstallService:
         command_timeout: int = 30,
         app_port: int = 9998,
         app_debug: bool = False,
-        frontend_name: str = "笑话面对面",
-        backend_name: str = "AIPanelAdmin 管理后台"
+        frontend_name: str = "",
+        backend_name: str = ""
     ) -> None:
         """写入配置文件"""
         import configparser
@@ -485,8 +485,8 @@ class InstallService:
                 command_timeout=db_config.get("command_timeout", 30),
                 app_port=server_config.get("app_port", 9998),
                 app_debug=server_config.get("app_debug", False),
-                frontend_name=server_config.get("frontend_name", "笑话面对面"),
-                backend_name=server_config.get("backend_name", "AIPanelAdmin 管理后台")
+                frontend_name=server_config.get("frontend_name", ""),
+                backend_name=server_config.get("backend_name", "")
             )
             
             # Step 2: 初始化数据库
