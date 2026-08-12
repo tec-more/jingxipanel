@@ -22,7 +22,7 @@
             "path": "/inventory",
             "icon": "Package",
             "component": "inventory/Index",
-            "sort": 9,
+            "sort": 9600,
             "is_hidden": false,
             "menu_type": "menu",
             "permission_code": "inventory:list",

@@ -27,7 +27,7 @@
             "path": "/purchase",
             "icon": "Package",
             "component": "purchase/Index",
-            "sort": 6,
+            "sort": 8100,
             "is_hidden": false,
             "menu_type": "menu",
             "permission_code": "purchase:list",

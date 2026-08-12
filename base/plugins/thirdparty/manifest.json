@@ -25,7 +25,7 @@
             "icon": "CloudServer",
             "component": "",
             "redirect": "/thirdparty/platforms",
-            "sort": 4,
+            "sort": 6300,
             "children": [
                 {
                     "name": "平台管理",

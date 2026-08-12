@@ -27,7 +27,7 @@
             "icon": "User",
             "component": "",
             "redirect": "/customer/list",
-            "sort": 2,
+            "sort": 7100,
             "children": [
                 {
                     "name": "客户列表",

@@ -28,7 +28,7 @@
             "icon": "Stamp",
             "component": "",
             "redirect": "/approval/center",
-            "sort": 20,
+            "sort": 9700,
             "children": [
                 {
                     "name": "审批中心",

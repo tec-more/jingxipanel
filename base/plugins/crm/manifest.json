@@ -37,7 +37,7 @@
             "icon": "Suitcase",
             "component": "",
             "redirect": "/crm/leads",
-            "sort": 3,
+            "sort": 7500,
             "children": [
                 {
                     "name": "线索管理",

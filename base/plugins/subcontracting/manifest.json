@@ -33,7 +33,7 @@
             "name": "委外管理",
             "icon": "Share",
             "path": "/panel/subcontracting",
-            "order": 300,
+            "order": 8300,
             "children": [
                 {
                     "name": "委外工单",

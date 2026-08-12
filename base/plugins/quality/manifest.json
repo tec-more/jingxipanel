@@ -22,7 +22,7 @@
             "path": "/quality",
             "icon": "ShieldCheck",
             "component": "quality/Index",
-            "sort": 9,
+            "sort": 6100,
             "is_hidden": false,
             "menu_type": "menu",
             "permission_code": "quality:list",

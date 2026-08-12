@@ -22,7 +22,7 @@
             "path": "/equipment",
             "icon": "Settings",
             "component": "equipment/Index",
-            "sort": 10,
+            "sort": 6200,
             "is_hidden": false,
             "menu_type": "menu",
             "permission_code": "equipment:list",

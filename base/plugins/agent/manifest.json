@@ -40,7 +40,7 @@
             "path": "/agent",
             "icon": "icon-agent",
             "component": "agent/index",
-            "sort": 10,
+            "sort": 5100,
             "children": [
                 {
                     "name": "智能体",

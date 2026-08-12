@@ -28,7 +28,7 @@
             "path": "/sales",
             "icon": "ShoppingCart",
             "component": "sales/Index",
-            "sort": 5,
+            "sort": 8000,
             "is_hidden": false,
             "menu_type": "menu",
             "permission_code": "sales:list",

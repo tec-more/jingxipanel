@@ -24,7 +24,7 @@
             "path": "/mrp2",
             "icon": "TrendingUp",
             "component": "mrp2/Index",
-            "sort": 9,
+            "sort": 6000,
             "is_hidden": false,
             "menu_type": "menu",
             "permission_code": "mrp2:list",

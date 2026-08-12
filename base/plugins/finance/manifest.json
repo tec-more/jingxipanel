@@ -41,7 +41,7 @@
             "path": "/finance",
             "icon": "Money",
             "component": "finance/Index",
-            "sort": 1,
+            "sort": 7000,
             "is_hidden": false,
             "menu_type": "menu",
             "permission_code": "finance:list",

@@ -23,7 +23,7 @@
             "path": "/product",
             "icon": "Box",
             "component": "",
-            "sort": 3,
+            "sort": 7400,
             "is_hidden": false,
             "menu_type": "menu",
             "permission_code": "product:list",

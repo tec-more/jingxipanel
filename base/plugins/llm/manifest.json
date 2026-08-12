@@ -29,7 +29,7 @@
             "icon": "ChatDotRound",
             "component": "",
             "redirect": "/llm/models",
-            "sort": 3,
+            "sort": 6000,
             "children": [
                 {
                     "name": "模型管理",

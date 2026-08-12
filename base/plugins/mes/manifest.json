@@ -40,7 +40,7 @@
             "path": "/mes",
             "icon": "Factory",
             "component": "mes/Index",
-            "sort": 8,
+            "sort": 9500,
             "is_hidden": false,
             "menu_type": "menu",
             "permission_code": "mes:list",

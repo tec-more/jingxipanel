@@ -22,7 +22,7 @@
             "path": "/document",
             "icon": "Document",
             "component": "document/Index",
-            "sort": 11,
+            "sort": 9700,
             "is_hidden": false,
             "menu_type": "menu",
             "permission_code": "document:list",
