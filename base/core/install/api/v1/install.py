@@ -12,182 +12,8 @@ from base.common.setting import settings
 import os
 import sys
 import platform
-import subprocess
 
 router = APIRouter(prefix="/v1/install", tags=["系统安装"])
-
-
-def _trigger_restart(delay_seconds: int = 3):
-    """
-    触发应用自动重启（跨平台，兼容开发模式）。
-
-    创建一个 detached 子进程，延迟指定秒数后终止当前进程并启动新进程。
-    支持 Windows / Linux / macOS，自动处理 uvicorn reload 父子进程。
-
-    进程关系说明：
-      - 生产模式（无 reload）：当前进程 = 实际服务进程，直接 kill 当前 PID
-      - 开发模式（有 reload）：当前进程 = worker 子进程，父进程 = uvicorn reloader
-        只 kill worker 会被父进程重新 fork，所以要 kill 父进程（以及其下的整个进程树）
-    """
-    python_executable = sys.executable
-    base_dir = str(settings.base_path)
-    script_path = os.path.join(base_dir, "run.py")
-    app_port = str(getattr(settings, "app_port", 9998))
-
-    current_pid = os.getpid()
-    try:
-        parent_pid = os.getppid()
-    except AttributeError:
-        parent_pid = None
-
-    # 判断是否在 uvicorn reload 模式下（当前进程是 worker 子进程）
-    is_reload_worker = _is_uvicorn_reload_worker(parent_pid)
-
-    if is_reload_worker and parent_pid:
-        # 开发模式：终止 uvicorn reloader 父进程（会连带杀掉 worker）
-        target_pid = parent_pid
-        is_dev_mode = True
-    else:
-        # 生产模式：终止当前进程
-        target_pid = current_pid
-        is_dev_mode = False
-
-    system = platform.system()
-
-    if system == "Windows":
-        _restart_windows(
-            base_dir, script_path, python_executable,
-            current_pid, target_pid, delay_seconds, is_dev_mode, app_port
-        )
-    else:
-        _restart_unix(
-            base_dir, script_path, python_executable,
-            current_pid, target_pid, delay_seconds, is_dev_mode, app_port
-        )
-
-
-def _is_uvicorn_reload_worker(parent_pid) -> bool:
-    """
-    判断当前进程是否是 uvicorn reload 模式下的 worker 子进程。
-    依据：父进程的命令行包含 "uvicorn" 或 run.py 启动脚本（即父进程是 reloader）。
-    """
-    if not parent_pid:
-        return False
-    system = platform.system()
-    try:
-        if system == "Windows":
-            # Windows: 使用 wmic 查询父进程命令行
-            result = subprocess.run(
-                ["wmic", "process", "where", f"ProcessId={parent_pid}", "get", "CommandLine", "/value"],
-                capture_output=True, text=True, timeout=5
-            )
-            line = result.stdout.strip()
-            return ("uvicorn" in line.lower()) or ("run.py" in line)
-        else:
-            # Linux / macOS: 使用 ps -p PID -o args=
-            result = subprocess.run(
-                ["ps", "-p", str(parent_pid), "-o", "args="],
-                capture_output=True, text=True, timeout=5
-            )
-            line = result.stdout.strip()
-            return ("uvicorn" in line.lower()) or ("run.py" in line)
-    except Exception:
-        # 失败时安全回退：按生产模式处理（只 kill 当前 PID）
-        return False
-
-
-def _restart_windows(base_dir, script_path, python_executable, current_pid, target_pid, delay, is_dev, app_port):
-    """Windows 平台重启脚本"""
-    dev_env = "set UVICORN_RELOAD=true\r\n" if is_dev else ""
-    # 当 target_pid != current_pid（即 dev 模式）时，先 kill 父进程，再确保当前进程也被 kill
-    if target_pid != current_pid:
-        kill_cmds = f"""echo [重启脚本] 正在终止 uvicorn reloader 父进程 PID={target_pid}（含子进程）...
-taskkill /PID {target_pid} /F /T >nul 2>&1
-echo [重启脚本] 正在兜底终止 worker 进程 PID={current_pid}...
-taskkill /PID {current_pid} /F /T >nul 2>&1
-"""
-    else:
-        kill_cmds = f"""echo [重启脚本] 正在终止服务进程 PID={target_pid}...
-taskkill /PID {target_pid} /F /T >nul 2>&1
-"""
-
-    bat_content = f"""@echo off
-chcp 65001 >nul 2>&1
-echo [重启脚本] 等待 {delay} 秒...
-timeout /t {delay} /nobreak >nul
-{kill_cmds}echo [重启脚本] 等待端口 {app_port} 释放...
-:wait_port
-timeout /t 1 /nobreak >nul
-netstat -ano | findstr ":{app_port} " | findstr "LISTENING" >nul 2>&1
-if %errorlevel% equ 0 goto wait_port
-echo [重启脚本] 端口已释放，正在启动新进程...
-cd /d "{base_dir}"
-set UVICORN_PORT={app_port}
-{dev_env}"{python_executable}" "{script_path}"
-"""
-    bat_path = os.path.join(base_dir, "_restart.bat")
-    with open(bat_path, 'w', encoding='utf-8') as f:
-        f.write(bat_content)
-
-    subprocess.Popen(
-        ['cmd', '/c', bat_path],
-        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
-        close_fds=True,
-        cwd=base_dir
-    )
-
-
-def _restart_unix(base_dir, script_path, python_executable, current_pid, target_pid, delay, is_dev, app_port):
-    """Linux / macOS 平台重启脚本"""
-    dev_env = "export UVICORN_RELOAD=true\n" if is_dev else ""
-
-    if target_pid != current_pid:
-        # dev 模式：先 kill 父进程（uvicorn reloader）进程组，再兜底 kill 当前进程
-        kill_cmds = f"""echo "[重启脚本] 正在终止 uvicorn reloader 父进程 PID={target_pid}（含子进程）..."
-# 终止整个进程组
-pkill -TERM -P {target_pid} 2>/dev/null
-kill -TERM {target_pid} 2>/dev/null
-sleep 2
-# 强制清理残余
-pkill -9 -P {target_pid} 2>/dev/null
-kill -9 {target_pid} 2>/dev/null
-echo "[重启脚本] 正在兜底终止 worker 进程 PID={current_pid}..."
-kill -9 {current_pid} 2>/dev/null
-"""
-    else:
-        # 生产模式：终止当前进程及其子进程
-        kill_cmds = f"""echo "[重启脚本] 正在终止服务进程 PID={target_pid}..."
-pkill -TERM -P {target_pid} 2>/dev/null
-kill -TERM {target_pid} 2>/dev/null
-sleep 2
-pkill -9 -P {target_pid} 2>/dev/null
-kill -9 {target_pid} 2>/dev/null
-"""
-
-    sh_content = f"""#!/bin/bash
-echo "[重启脚本] 等待 {delay} 秒..."
-sleep {delay}
-{kill_cmds}echo "[重启脚本] 等待端口 {app_port} 释放..."
-while lsof -i :{app_port} -t > /dev/null 2>&1; do
-    sleep 1
-done
-# 如果 lsof 不可用，用额外等待替代
-sleep 2
-echo "[重启脚本] 端口已释放，正在启动新进程..."
-cd "{base_dir}"
-export UVICORN_PORT={app_port}
-{dev_env}exec "{python_executable}" "{script_path}"
-"""
-    sh_path = os.path.join(base_dir, "_restart.sh")
-    with open(sh_path, 'w', encoding='utf-8') as f:
-        f.write(sh_content)
-    os.chmod(sh_path, 0o755)
-
-    subprocess.Popen(
-        ['bash', sh_path],
-        start_new_session=True,
-        cwd=base_dir
-    )
 
 
 @router.get("/env-check", summary="环境检测")
@@ -352,10 +178,10 @@ async def get_install_status():
 
 @router.post("/test-database", response_model=TestConnectionResponse, summary="测试数据库连接")
 async def test_database_connection(request: TestConnectionRequest):
-    """测试数据库连接"""
+    """测试数据库连接（含空库检测，非空数据库会返回 success=False 阻止安装）"""
     db = request.database
-    
-    success, message, response_time = await InstallService.test_database_connection(
+
+    success, message, response_time, is_empty, table_count = await InstallService.test_database_connection(
         db_host=db.db_host,
         db_port=db.db_port,
         db_name=db.db_name,
@@ -365,11 +191,13 @@ async def test_database_connection(request: TestConnectionRequest):
         timeout=5,
         auto_create_db=db.auto_create_db
     )
-    
+
     return TestConnectionResponse(
         success=success,
         message=message,
-        response_time_ms=response_time
+        response_time_ms=response_time,
+        is_empty=is_empty,
+        table_count=table_count
     )
 
 
@@ -382,9 +210,9 @@ async def execute_installation(request: InstallRequest):
             detail="系统已安装，如需重新安装请先清除安装标记"
         )
     
-    # 先测试数据库连接（传入 auto_create_db 选项）
+    # 先测试数据库连接 + 空库检测
     db = request.database
-    success, message, _ = await InstallService.test_database_connection(
+    success, message, _, is_empty, table_count = await InstallService.test_database_connection(
         db_host=db.db_host,
         db_port=db.db_port,
         db_name=db.db_name,
@@ -393,8 +221,17 @@ async def execute_installation(request: InstallRequest):
         charset=db.charset,
         auto_create_db=db.auto_create_db
     )
-    
+
     if not success:
+        if table_count >= 0 and is_empty is False:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{message} | 该数据库中已有 {table_count} 张表，"
+                    "可能包含旧数据。为避免数据丢失，系统禁止在非空数据库上强制安装。"
+                    "请更换为空的数据库，或手动清空当前数据库后再试！"
+                )
+            )
         raise HTTPException(
             status_code=400,
             detail=f"数据库连接失败：{message}"
@@ -430,14 +267,12 @@ async def execute_installation(request: InstallRequest):
             }
         )
 
-        # 安装成功后触发自动重启（延迟3秒，确保响应已发送）
-        _trigger_restart(delay_seconds=3)
-
+        # 安装成功，提示用户手动重启
         return JSONResponse(
             status_code=200,
             content={
                 "success": True,
-                "message": "系统安装成功，正在自动重启...",
+                "message": "系统安装成功！请手动重启应用服务后再登录。",
                 "data": {
                     "admin_username": request.admin.username,
                     "admin_email": request.admin.email,

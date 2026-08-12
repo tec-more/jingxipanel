@@ -1,8 +1,10 @@
 import request, { createRequestWithTimeout } from '@/utils/request'
 
 // 安装相关接口使用更长超时（创建数据库、建表等耗时操作）
-const longRequest = createRequestWithTimeout(120000)
-const dbTestRequest = createRequestWithTimeout(60000)
+// execute: 300秒（openGauss建表慢、数据迁移多）
+// test-database: 120秒（含 CREATE DATABASE + 字符集设置）
+const longRequest = createRequestWithTimeout(300000)
+const dbTestRequest = createRequestWithTimeout(120000)
 
 // 获取安装状态
 export function getInstallStatus() {

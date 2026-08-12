@@ -148,6 +148,36 @@
               </el-col>
             </el-row>
           </el-form>
+          <!-- 非空数据库警告 -->
+          <el-alert
+            v-if="databaseNotEmptyWarning"
+            title="当前数据库不为空，无法安装！"
+            type="error"
+            :closable="false"
+            show-icon
+            class="empty-db-alert"
+          >
+            <template #default>
+              <div class="alert-body">
+                <p>
+                  检测到该数据库中已存在
+                  <strong>{{ testResult?.table_count ?? 0 }}</strong>
+                  张表，可能包含旧数据或业务数据。
+                </p>
+                <p class="alert-actions">
+                  <el-icon><WarningFilled /></el-icon>
+                  为避免数据丢失，<strong>系统禁止在非空数据库上强制安装</strong>。
+                  请执行以下任一操作：
+                </p>
+                <ul class="alert-suggestions">
+                  <li>① 修改「数据库名」，填写一个不存在的新库名，并勾选「自动创建数据库」</li>
+                  <li>② 使用 DBA 工具手动清空当前数据库（删除 public schema 下的所有用户表）</li>
+                  <li>③ 连接到另一个空的数据库实例</li>
+                </ul>
+              </div>
+            </template>
+          </el-alert>
+
           <div class="db-test-section">
             <el-button
               type="success"
@@ -157,11 +187,23 @@
               <el-icon><Connection /></el-icon>
               测试连接
             </el-button>
-            <span v-if="testResult" class="test-result" :class="testResult.success ? 'success' : 'error'">
+            <span
+              v-if="testResult"
+              class="test-result"
+              :class="testResult.success ? 'success' : 'error'"
+            >
               <el-icon v-if="testResult.success"><CircleCheck /></el-icon>
               <el-icon v-else><CircleClose /></el-icon>
               {{ testResult.message }}
-              <span v-if="testResult.response_time_ms" class="response-time">({{ testResult.response_time_ms }}ms)</span>
+              <span v-if="testResult.response_time_ms" class="response-time">
+                ({{ testResult.response_time_ms }}ms)
+              </span>
+              <span
+                v-if="testResult.table_count !== undefined && testResult.table_count >= 0"
+                class="table-count-tag"
+              >
+                表数量: {{ testResult.table_count }}
+              </span>
             </span>
           </div>
           <div class="step-actions">
@@ -271,22 +313,6 @@
                 <span>{{ log.message }}</span>
               </div>
             </div>
-            <!-- 重启中提示 -->
-            <div v-if="restarting" class="restart-status">
-              <el-alert
-                title="正在重启服务，请稍候..."
-                type="info"
-                :closable="false"
-                show-icon
-              >
-                <template #default>
-                  <div class="restart-info">
-                    <el-icon class="is-loading"><Loading /></el-icon>
-                    <span>服务正在重启中（已等待 {{ restartCount * 2 }} 秒）...</span>
-                  </div>
-                </template>
-              </el-alert>
-            </div>
           </div>
         </div>
 
@@ -295,7 +321,7 @@
           <el-result
             icon="success"
             title="安装成功"
-            sub-title="系统已成功安装，请使用管理员账户登录"
+            sub-title="系统基础配置已完成，数据库和表结构已就绪"
           >
             <template #extra>
               <div class="install-result-info">
@@ -303,15 +329,55 @@
                   <el-descriptions-item label="管理员用户名">{{ installResult?.admin_username }}</el-descriptions-item>
                   <el-descriptions-item label="管理员邮箱">{{ installResult?.admin_email }}</el-descriptions-item>
                 </el-descriptions>
+
+                <!-- 手动重启提示 -->
+                <el-alert
+                  type="warning"
+                  :closable="false"
+                  show-icon
+                  class="restart-required-alert"
+                >
+                  <template #title>
+                    <span class="restart-alert-title">
+                      <el-icon><WarningFilled /></el-icon>
+                      必须手动重启应用服务
+                    </span>
+                  </template>
+                  <template #default>
+                    <div class="restart-alert-body">
+                      <p>为使数据库连接池配置、系统名称等新配置生效，必须重启应用服务。</p>
+                      <p class="restart-steps">
+                        <strong>操作步骤：</strong>
+                      </p>
+                      <ol>
+                        <li>在启动应用服务的终端中，按 <kbd>Ctrl</kbd> + <kbd>C</kbd> 停止当前进程</li>
+                        <li>重新运行启动命令（如 <code>python run.py</code> 或 <code>uvicorn run:app --reload</code>）</li>
+                        <li>待服务启动成功后，点击下方「我已重启，前往登录」</li>
+                      </ol>
+                    </div>
+                  </template>
+                </el-alert>
+
                 <p class="warning-text">
                   <el-icon><Warning /></el-icon>
-                  请妥善保管管理员账户信息，安装完成后建议立即登录并修改默认密码。
+                  请妥善保管管理员账户信息，建议登录后立即修改默认密码。
                 </p>
               </div>
-              <el-button type="primary" size="large" @click="goToLogin">
-                前往登录
+              <el-button
+                type="primary"
+                size="large"
+                :disabled="!restartConfirmed"
+                @click="goToLogin"
+              >
+                我已重启，前往登录
                 <el-icon style="margin-left: 4px;"><ArrowRight /></el-icon>
               </el-button>
+              <el-checkbox
+                v-model="restartConfirmed"
+                class="restart-confirm-checkbox"
+              >
+                确认已手动重启应用服务
+              </el-checkbox>
             </template>
           </el-result>
         </div>
@@ -326,7 +392,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   Setting, Monitor, Coin, User, CircleCheck, CircleClose,
-  Warning, ArrowRight, ArrowLeft, Connection, Download,
+  Warning, WarningFilled, ArrowRight, ArrowLeft, Connection, Download,
   Loading, QuestionFilled, Refresh
 } from '@element-plus/icons-vue'
 import { getInstallStatus, testDatabaseConnection, executeInstallation, envCheck } from '@/api/install'
@@ -383,6 +449,8 @@ const dbRules = {
 const testingConnection = ref(false)
 const testResult = ref(null)
 const dbConnectionOk = ref(false)
+// 数据库非空警告标记：连接成功但 is_empty=false 时显示
+const databaseNotEmptyWarning = ref(false)
 
 // 管理员表单
 const adminFormRef = ref(null)
@@ -438,9 +506,8 @@ const installLogs = ref([])
 const installResult = ref(null)
 let installTimer = null
 
-// 重启相关状态
-const restarting = ref(false)
-const restartCount = ref(0)
+// 安装完成页 - 用户确认已重启应用
+const restartConfirmed = ref(false)
 
 // 下一步
 const nextStep = async () => {
@@ -476,6 +543,7 @@ const handleTestConnection = async () => {
   testingConnection.value = true
   testResult.value = null
   dbConnectionOk.value = false
+  databaseNotEmptyWarning.value = false
 
   try {
     const res = await testDatabaseConnection({
@@ -486,25 +554,59 @@ const handleTestConnection = async () => {
         db_user: dbForm.db_user,
         db_password: dbForm.db_password,
         charset: dbForm.charset,
+        minsize: dbForm.minsize,
+        maxsize: dbForm.maxsize,
+        timeout: dbForm.timeout,
+        command_timeout: dbForm.timeout,
         auto_create_db: dbForm.auto_create_db
       }
     })
 
     // 兼容不同的响应格式
     const data = res.data || res
+    const isEmpty = data.is_empty === true
+    const tableCount = typeof data.table_count === 'number' ? data.table_count : -1
+
     testResult.value = {
       success: data.success,
       message: data.message,
-      response_time_ms: data.response_time_ms
+      response_time_ms: data.response_time_ms || 0,
+      is_empty: isEmpty,
+      table_count: tableCount
     }
-    dbConnectionOk.value = data.success
+
+    // 关键判断：
+    // - success=true → 空库且连接正常 → 允许进入下一步
+    // - success=false + tableCount>=0 + !isEmpty → 非空库 → 强制显示警告，阻止下一步
+    // - 其他 success=false → 普通连接失败
+    if (data.success) {
+      dbConnectionOk.value = true
+      databaseNotEmptyWarning.value = false
+    } else if (tableCount >= 0 && !isEmpty) {
+      // 连接成功但数据库非空：显示醒目警告，禁止下一步
+      dbConnectionOk.value = false
+      databaseNotEmptyWarning.value = true
+      ElMessage({
+        type: 'error',
+        message: '当前数据库不为空，请更换为空数据库后再继续！',
+        duration: 5000,
+        showClose: true
+      })
+    } else {
+      // 普通连接失败
+      dbConnectionOk.value = false
+      databaseNotEmptyWarning.value = false
+    }
   } catch (e) {
     testResult.value = {
       success: false,
       message: e.message || '连接测试失败',
-      response_time_ms: 0
+      response_time_ms: 0,
+      is_empty: false,
+      table_count: -1
     }
     dbConnectionOk.value = false
+    databaseNotEmptyWarning.value = false
   } finally {
     testingConnection.value = false
   }
@@ -611,7 +713,7 @@ const handleExecuteInstall = async () => {
     installProgress.value = 100
     installStatus.value = 'success'
     installLogs.value.push({ type: 'success', message: '系统安装成功！' })
-    installLogs.value.push({ type: 'info', message: '正在自动重启服务...' })
+    installLogs.value.push({ type: 'info', message: '请在手动重启应用服务后登录' })
     
     const data = res.data || res
     installResult.value = data
@@ -620,10 +722,9 @@ const handleExecuteInstall = async () => {
     localStorage.setItem('system_installed', 'true')
     localStorage.setItem('install_time', new Date().toISOString())
 
-    // 安装成功后开始轮询后端重启状态
-    restarting.value = true
-    restartCount.value = 0
-    await pollRestartStatus()
+    // 直接跳转到安装完成页（步骤4），提示用户手动重启
+    currentStep.value = 4
+    installing.value = false
 
   } catch (e) {
     clearInterval(progressTimer)
@@ -637,47 +738,23 @@ const handleExecuteInstall = async () => {
   }
 }
 
-// 轮询后端重启状态
-const pollRestartStatus = async () => {
-  const maxRetries = 30 // 最多重试30次（约60秒）
-  const interval = 2000 // 每2秒轮询一次
-
-  const poll = async () => {
-    restartCount.value++
-    if (restartCount.value > maxRetries) {
-      // 超时，停止轮询
-      restarting.value = false
-      installLogs.value.push({ type: 'warning', message: '重启超时，请手动刷新页面' })
-      installing.value = false
-      currentStep.value = 4
+// 跳转到登录页（已重启确认后）
+const goToLogin = async () => {
+  // 先验证后端服务是否已恢复
+  try {
+    const res = await getInstallStatus()
+    const data = res.data || res
+    if (!data.installed) {
+      // 后端已重启但仍未识别为已安装
+      ElMessage.warning('服务尚未就绪，请确认已重启应用服务')
       return
     }
-
-    try {
-      const res = await getInstallStatus()
-      const data = res.data || res
-      if (data.installed === true) {
-        // 后端已恢复且已安装
-        restarting.value = false
-        installLogs.value.push({ type: 'success', message: '服务重启成功！' })
-        installing.value = false
-        currentStep.value = 4
-        return
-      }
-      // 后端已恢复但未安装（不应该发生），继续等待
-      setTimeout(poll, interval)
-    } catch (e) {
-      // 后端尚未恢复（连接失败），继续等待
-      setTimeout(poll, interval)
-    }
+  } catch (e) {
+    // 后端未启动 / 连接失败
+    ElMessage.error('无法连接到后端服务，请确认已重启应用服务')
+    return
   }
 
-  // 等待3秒后开始轮询（给后端时间关闭旧进程）
-  setTimeout(poll, 3000)
-}
-
-// 跳转到登录页
-const goToLogin = () => {
   // 确保安装状态已保存
   localStorage.setItem('system_installed', 'true')
   router.push({
@@ -984,6 +1061,66 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+.empty-db-alert {
+  margin-bottom: 20px;
+  border-radius: 10px;
+
+  .alert-body {
+    text-align: left;
+    font-size: 14px;
+    color: #606266;
+    line-height: 1.7;
+
+    p {
+      margin: 6px 0;
+    }
+
+    strong {
+      color: #f56c6c;
+    }
+
+    .alert-actions {
+      color: #f56c6c;
+      font-weight: 500;
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .alert-suggestions {
+      margin: 8px 0 0 0;
+      padding-left: 20px;
+      color: #606266;
+
+      li {
+        margin-bottom: 4px;
+      }
+    }
+  }
+}
+
+.table-count-tag {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 1px 8px;
+  background: #909399;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 12px;
+
+  &:not(.success) + & {
+    background: #f56c6c;
+  }
+}
+
+.test-result.error .table-count-tag {
+  background: #f56c6c;
+}
+.test-result.success .table-count-tag {
+  background: #67c23a;
+}
+
 .install-progress {
   text-align: center;
   padding: 20px 0;
@@ -1039,5 +1176,68 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.restart-required-alert {
+  margin: 20px 0;
+  border-radius: 10px;
+
+  .restart-alert-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .restart-alert-body {
+    font-size: 14px;
+    line-height: 1.8;
+    text-align: left;
+
+    p {
+      margin: 6px 0;
+    }
+
+    .restart-steps {
+      margin-top: 10px;
+      font-weight: 500;
+    }
+
+    ol {
+      margin: 8px 0 0 0;
+      padding-left: 22px;
+
+      li {
+        margin-bottom: 4px;
+      }
+    }
+
+    kbd {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #fff;
+      border: 1px solid #dcdfe6;
+      border-radius: 4px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 12px;
+      color: #606266;
+      margin: 0 2px;
+    }
+
+    code {
+      background: #f5f7fa;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #e6a23c;
+    }
+  }
+}
+
+.restart-confirm-checkbox {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
 }
 </style>

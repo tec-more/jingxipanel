@@ -47,6 +47,8 @@ class TestConnectionRequest(BaseModel):
 
 class TestConnectionResponse(BaseModel):
     """测试连接响应"""
-    success: bool = Field(..., description="是否成功")
+    success: bool = Field(..., description="是否成功（数据库连接且为空时才为 True）")
     message: str = Field(default="", description="结果消息")
     response_time_ms: int = Field(default=0, description="响应时间(毫秒)")
+    is_empty: bool = Field(default=False, description="数据库是否为空（public schema 无用户表）")
+    table_count: int = Field(default=-1, description="public schema 下的表总数，-1 表示未知")
