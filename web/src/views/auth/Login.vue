@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-card">
       <div class="login-header">
-        <img src="@/assets/logo.svg" alt="logo" class="logo" />
+        <img src="@/assets/logo.png" alt="logo" class="logo" />
         <h1>{{ systemStore.backend_name }}</h1>
         <p>{{ systemStore.frontend_name }}</p>
       </div>
@@ -129,7 +129,6 @@ const handleLogin = async () => {
   .logo {
     width: 64px;
     height: 64px;
-    margin-bottom: 16px;
   }
 
   h1 {
