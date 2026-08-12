@@ -387,7 +387,10 @@ router.beforeEach(async (to, from, next) => {
   // ---- 安装状态检查 ----
   // 同时检查 localStorage 缓存和后端真实状态
   let isInstalled = localStorage.getItem('system_installed') === 'true'
-  
+
+  // 根据配置获取安装后跳转路径
+  const installRedirectPath = systemStore.install_redirect === 'home' ? '/' : '/panel/login'
+
   // 访问安装页面时，始终向后端验证真实安装状态
   // 避免 localStorage 无缓存但系统实际已安装时出现页面闪现
   if (to.path === '/install') {
@@ -396,7 +399,7 @@ router.beforeEach(async (to, from, next) => {
       const data = res.data || res
       if (data.installed) {
         localStorage.setItem('system_installed', 'true')
-        next({ path: '/panel/login' })
+        next({ path: installRedirectPath })
         return
       } else {
         localStorage.removeItem('system_installed')
@@ -419,16 +422,16 @@ router.beforeEach(async (to, from, next) => {
       localStorage.removeItem('system_installed')
     }
   }
-  
+
   // 如果未安装，且目标不是安装页面，重定向到安装页面
   if (!isInstalled && to.path !== '/install') {
     next({ path: '/install' })
     return
   }
-  
-  // 如果已安装，且目标是安装页面，重定向到登录页
+
+  // 如果已安装，且目标是安装页面，重定向到登录页或首页
   if (isInstalled && to.path === '/install') {
-    next({ path: '/panel/login' })
+    next({ path: installRedirectPath })
     return
   }
 
@@ -437,12 +440,18 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // ---- 动态路由加载（必须在 public 检查之前，因为 NotFound 也是 public） ----
+  // ---- 公开页面（除 NotFound 外）直接放行 ----
+  // 避免访问 /install / 登录页等公开页面时触发 fetchUserMenus 需要鉴权的 API，
+  // 如果 localStorage 有过期 token 会导致弹出"登录已过期"提示
+  const isNotFound = router.resolve(to).name === 'NotFound'
+  if (to.meta.public && !isNotFound) {
+    next()
+    return
+  }
+
+  // ---- 动态路由加载 ----
   const menuStore = useMenuStore()
-  const resolved = router.resolve(to)
-  // 只有非公开路由才需要加载动态路由，但 NotFound 除外（它需要有机会匹配动态路由）
-  const isNotFound = resolved.name === 'NotFound'
-  
+
   if (isNotFound || !menuStore.routesReady) {
     // 防止动态路由加载失败时的无限重定向循环
     if (menuStore.routeRetryCount >= 3) {
@@ -454,9 +463,9 @@ router.beforeEach(async (to, from, next) => {
         if (!menuStore.isLoaded) {
           await menuStore.fetchUserMenus()
         }
-        
+
         const dynamicRoutes = menuStore.generateRoutes()
-        
+
         if (dynamicRoutes.length > 0) {
           dynamicRoutes.forEach(route => {
             if (!router.hasRoute(route.name)) {
@@ -465,10 +474,10 @@ router.beforeEach(async (to, from, next) => {
             }
           })
         }
-        
+
         menuStore.routesReady = true
         menuStore.routeRetryCount++
-        
+
         // 重新导航：只传 path，不能展开 to（否则 name: 'NotFound' 会覆盖 path 指向 404）
         next({ path: to.path, query: to.query, hash: to.hash, replace: true })
         return
@@ -479,10 +488,10 @@ router.beforeEach(async (to, from, next) => {
       }
     }
   }
-  
+
   menuStore.routeRetryCount = 0
 
-  // ---- 公开页面直接放行 ----
+  // ---- NotFound 是 public 的兜底放行 ----
   if (to.meta.public) {
     next()
     return

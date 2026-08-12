@@ -181,6 +181,7 @@ class Settings(BaseSettings):
 	debug: bool = config.config.getboolean("app", "debug", fallback=True)
 	frontend_name: str = config.config.get("app", "frontend_name", fallback="")
 	backend_name: str = config.config.get("app", "backend_name", fallback="AIPanelAdmin 管理后台")
+	install_redirect: str = config.config.get("app", "install_redirect", fallback="login")
 	db_host: str = db_host
 	db_name: str = db_name
 	db_user: str = db_user

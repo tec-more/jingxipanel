@@ -9,6 +9,7 @@ export const useSystemStore = defineStore('system', () => {
   const frontend_name = ref('')
   const backend_name = ref('')
   const debug = ref(false)
+  const install_redirect = ref('login')
   const loaded = ref(false)
 
   /**
@@ -25,6 +26,7 @@ export const useSystemStore = defineStore('system', () => {
       if (data.app_description != null) app_description.value = data.app_description
       if (data.frontend_name != null) frontend_name.value = data.frontend_name
       if (data.backend_name != null) backend_name.value = data.backend_name
+      if (data.install_redirect != null) install_redirect.value = data.install_redirect
       if (typeof data.debug === 'boolean') debug.value = data.debug
       loaded.value = true
     } catch (e) {
@@ -42,6 +44,7 @@ export const useSystemStore = defineStore('system', () => {
     frontend_name,
     backend_name,
     debug,
+    install_redirect,
     loaded,
     loadConfig,
     siteTitle,

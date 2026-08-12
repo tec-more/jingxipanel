@@ -15,4 +15,5 @@ async def get_system_config():
         "frontend_name": settings.frontend_name,
         "backend_name": settings.backend_name,
         "debug": settings.debug,
+        "install_redirect": settings.install_redirect,
     })

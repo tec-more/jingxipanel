@@ -40,7 +40,12 @@ export function createRequestWithTimeout(timeout) {
       console.error('[Request Error]', error)
       if (error.response) {
         const { status, data } = error.response
+        const requestUrl = error.config?.url || ''
         if (status === 401) {
+          if (isPublicApiUrl(requestUrl)) {
+            console.warn('[Request] 公共 API 返回 401，静默处理（不跳转登录）', requestUrl)
+            return Promise.reject(error)
+          }
           localStorage.removeItem('token')
           localStorage.removeItem('userInfo')
           ElMessage.error('登录已过期，请重新登录')
@@ -58,6 +63,19 @@ export function createRequestWithTimeout(timeout) {
   )
 
   return instance
+}
+
+// 判断是否为无需鉴权的公共 API 路径
+function isPublicApiUrl(url) {
+  if (!url) return true
+  const normalized = url.replace(/^\/api/, '')
+  return (
+    normalized.startsWith('/v1/install') ||
+    normalized.startsWith('/v1/common') ||
+    normalized.startsWith('/v1/auth/login') ||
+    normalized.startsWith('/v1/customer/auth') ||
+    normalized.startsWith('/health')
+  )
 }
 
 // 请求拦截器 - 直接从 localStorage 读取 token
@@ -107,15 +125,23 @@ request.interceptors.response.use(
 
     if (error.response) {
       const { status, data } = error.response
+      const requestUrl = error.config?.url || ''
 
       // 打印详细错误信息
       console.error('[Response Error]', {
         status,
         data,
+        url: requestUrl,
         message: data?.msg || data?.message || error.message
       })
 
       if (status === 401) {
+        // 公共 API（安装页、公共配置等）即使返回 401 也不弹登录过期提示
+        // 避免 localStorage 有过期 token 访问 /install 时弹出提示
+        if (isPublicApiUrl(requestUrl)) {
+          console.warn('[Request] 公共 API 返回 401，静默处理（不跳转登录）', requestUrl)
+          return Promise.reject(error)
+        }
         // 清除本地存储并跳转登录页
         localStorage.removeItem('token')
         localStorage.removeItem('userInfo')

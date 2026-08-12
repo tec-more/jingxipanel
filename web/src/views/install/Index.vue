@@ -730,6 +730,11 @@ const handleExecuteInstall = async () => {
   }
 }
 
+// 根据配置获取安装后跳转路径
+const getInstallRedirectPath = () => {
+  return systemStore.install_redirect === 'home' ? '/' : '/panel/login'
+}
+
 // 跳转到登录页（已重启确认后）
 const goToLogin = async () => {
   // 先验证后端服务是否已恢复
@@ -749,9 +754,10 @@ const goToLogin = async () => {
 
   // 确保安装状态已保存
   localStorage.setItem('system_installed', 'true')
+  const redirectPath = getInstallRedirectPath()
   router.push({
-    path: '/panel/login',
-    query: { installed: '1' }
+    path: redirectPath,
+    query: redirectPath === '/panel/login' ? { installed: '1' } : {}
   })
 }
 
@@ -761,9 +767,10 @@ const checkInstallStatus = async () => {
     const res = await getInstallStatus()
     const data = res.data || res
     if (data.installed) {
-      ElMessage.info('系统已安装，正在跳转至登录页')
+      const redirectPath = getInstallRedirectPath()
+      ElMessage.info(redirectPath === '/' ? '系统已安装，正在跳转至首页' : '系统已安装，正在跳转至登录页')
       localStorage.setItem('system_installed', 'true')
-      router.replace('/panel/login')
+      router.replace(redirectPath)
       return true
     }
   } catch (e) {

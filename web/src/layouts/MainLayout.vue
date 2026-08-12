@@ -324,7 +324,7 @@ const handleCommand = async (command) => {
       })
       await userStore.logout()
       menuStore.resetMenus()
-      router.push('/panel')
+      router.push('/panel/login')
     } catch {
       // 取消操作
     }
