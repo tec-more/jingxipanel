@@ -346,14 +346,6 @@
                   <template #default>
                     <div class="restart-alert-body">
                       <p>为使数据库连接池配置、系统名称等新配置生效，必须重启应用服务。</p>
-                      <p class="restart-steps">
-                        <strong>操作步骤：</strong>
-                      </p>
-                      <ol>
-                        <li>在启动应用服务的终端中，按 <kbd>Ctrl</kbd> + <kbd>C</kbd> 停止当前进程</li>
-                        <li>重新运行启动命令（如 <code>python run.py</code> 或 <code>uvicorn run:app --reload</code>）</li>
-                        <li>待服务启动成功后，点击下方「我已重启，前往登录」</li>
-                      </ol>
                     </div>
                   </template>
                 </el-alert>
