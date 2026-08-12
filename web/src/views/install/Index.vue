@@ -755,19 +755,22 @@ const goToLogin = async () => {
   })
 }
 
-// 检查安装状态
+// 检查安装状态，返回是否已安装
 const checkInstallStatus = async () => {
   try {
     const res = await getInstallStatus()
     const data = res.data || res
     if (data.installed) {
       ElMessage.info('系统已安装，正在跳转至登录页')
+      localStorage.setItem('system_installed', 'true')
       router.replace('/panel/login')
+      return true
     }
   } catch (e) {
     // 未安装时可能会返回 404，忽略
     console.log('安装状态检查完成')
   }
+  return false
 }
 
 onMounted(async () => {
@@ -782,7 +785,11 @@ onMounted(async () => {
       serverForm.backend_name = systemStore.backend_name
     }
   } catch (_) {}
-  checkInstallStatus()
+
+  // 检查安装状态：如果系统已安装则跳转到登录页
+  const alreadyInstalled = await checkInstallStatus()
+  if (alreadyInstalled) return
+
   await doEnvCheck()
 })
 

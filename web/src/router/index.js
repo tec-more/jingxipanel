@@ -387,7 +387,26 @@ router.beforeEach(async (to, from, next) => {
   // ---- 安装状态检查 ----
   // 同时检查 localStorage 缓存和后端真实状态
   let isInstalled = localStorage.getItem('system_installed') === 'true'
-  if (isInstalled) {
+  
+  // 访问安装页面时，始终向后端验证真实安装状态
+  // 避免 localStorage 无缓存但系统实际已安装时出现页面闪现
+  if (to.path === '/install') {
+    try {
+      const res = await getInstallStatus()
+      const data = res.data || res
+      if (data.installed) {
+        localStorage.setItem('system_installed', 'true')
+        next({ path: '/panel/login' })
+        return
+      } else {
+        localStorage.removeItem('system_installed')
+        isInstalled = false
+      }
+    } catch (_) {
+      // 后端不可达，保留当前状态继续处理
+    }
+  } else if (isInstalled) {
+    // 非安装页面仅在 localStorage 标记为已安装时才验证后端
     try {
       const res = await getInstallStatus()
       const data = res.data || res
@@ -396,7 +415,6 @@ router.beforeEach(async (to, from, next) => {
         localStorage.removeItem('system_installed')
       }
     } catch (_) {
-      // 后端不可达但本地标记为已安装，说明状态不一致，视为未安装
       isInstalled = false
       localStorage.removeItem('system_installed')
     }
