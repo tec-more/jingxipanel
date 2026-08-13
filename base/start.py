@@ -473,6 +473,14 @@ def init_app() -> FastAPI:
     except ImportError as e:
         print(f"[警告] 无法导入 mail ws_router: {e}")
 
+    # 手动注册 digital_twin WebSocket 路由（孪生实时推送）
+    try:
+        from base.plugins.digital_twin.api.v1.twin_ws_router import twin_ws_router
+        app.include_router(twin_ws_router, prefix="/v1/digital-twin")
+        print("[手动注册] WebSocket路由已注册: /v1/digital-twin/ws")
+    except ImportError as e:
+        print(f"[警告] 无法导入 digital_twin twin_ws_router: {e}")
+
     # 注册事件系统API路由
     try:
         from base.common.events.api import events_api_router

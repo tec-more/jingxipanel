@@ -1,0 +1,93 @@
+{
+    "name": "digital_twin",
+    "display_name": "数字孪生",
+    "version": "1.0.0",
+    "description": "数字孪生模块，包含孪生实体建模、实时数据同步、仿真预测和可视化",
+    "author": "hepan",
+    "is_installed": true,
+    "is_enabled": true,
+    "route_prefix": "/v1/digital-twin",
+    "routes": [
+        "api/v1"
+    ],
+    "models": [
+        "digital_twin"
+    ],
+    "schemas": [
+        "digital_twin_schema"
+    ],
+    "menus": [
+        {
+            "name": "数字孪生",
+            "path": "/digital-twin",
+            "icon": "Monitor",
+            "component": "digital-twin/Index",
+            "sort": 9600,
+            "is_hidden": false,
+            "menu_type": "menu",
+            "permission_code": "digital_twin:list",
+            "children": [
+                {
+                    "name": "孪生实体",
+                    "path": "/digital-twin/entity",
+                    "icon": "Box",
+                    "component": "digital-twin/entity/Index",
+                    "sort": 1,
+                    "is_hidden": false,
+                    "menu_type": "menu",
+                    "permission_code": "digital_twin:entity:list"
+                },
+                {
+                    "name": "孪生场景",
+                    "path": "/digital-twin/scene",
+                    "icon": "Grid",
+                    "component": "digital-twin/scene/Index",
+                    "sort": 2,
+                    "is_hidden": false,
+                    "menu_type": "menu",
+                    "permission_code": "digital_twin:scene:list"
+                },
+                {
+                    "name": "数据接入",
+                    "path": "/digital-twin/data",
+                    "icon": "Connection",
+                    "component": "digital-twin/data/Index",
+                    "sort": 3,
+                    "is_hidden": false,
+                    "menu_type": "menu",
+                    "permission_code": "digital_twin:data:list"
+                },
+                {
+                    "name": "孪生事件",
+                    "path": "/digital-twin/event",
+                    "icon": "Bell",
+                    "component": "digital-twin/event/Index",
+                    "sort": 4,
+                    "is_hidden": false,
+                    "menu_type": "menu",
+                    "permission_code": "digital_twin:event:list"
+                },
+                {
+                    "name": "仿真预测",
+                    "path": "/digital-twin/simulation",
+                    "icon": "TrendCharts",
+                    "component": "digital-twin/simulation/Index",
+                    "sort": 5,
+                    "is_hidden": false,
+                    "menu_type": "menu",
+                    "permission_code": "digital_twin:simulation:list"
+                },
+                {
+                    "name": "孪生看板",
+                    "path": "/digital-twin/dashboard",
+                    "icon": "DataAnalysis",
+                    "component": "digital-twin/dashboard/Index",
+                    "sort": 6,
+                    "is_hidden": false,
+                    "menu_type": "menu",
+                    "permission_code": "digital_twin:dashboard:list"
+                }
+            ]
+        }
+    ]
+}
