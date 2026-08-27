@@ -1,0 +1,13 @@
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    # 端口映射，宿主机6379映射容器6379
+    ports:
+      - "6379:6379"
+    # 持久化数据卷，删除容器数据不丢失
+    volumes:
+      - F:/redis_data:/data
+    command: redis-server --appendonly yes --requirepass Admin@123456
