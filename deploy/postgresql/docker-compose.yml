@@ -1,0 +1,21 @@
+
+services:
+  postgresql:
+    image: postgres:16-alpine
+    container_name: postgresql
+    restart: always
+    # 端口映射，宿主机5432映射容器5432
+    ports:
+      - "5432:5432"
+    # 持久化数据卷，删除容器数据不丢失
+    volumes:
+      - F:/postgresql_data:/var/lib/postgresql/data
+    environment:
+      # 数据库超级用户密码（必须设置，不能空）
+      POSTGRES_PASSWORD: Admin@123456
+      # 默认数据库用户
+      POSTGRES_USER: postgres
+      # 默认数据库名
+      POSTGRES_DB: jingxipanel
+      # 数据库编码
+      LANG: en_US.UTF-8
