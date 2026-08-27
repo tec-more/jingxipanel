@@ -4,7 +4,7 @@ services:
     image: opengauss/opengauss-server:latest
     container_name: opengauss
     restart: always
-    # 端口映射，宿主机5432映射容器5432
+    # 端口映射，宿主机15432映射容器5432
     ports:
       - "15432:5432"
     # 持久化数据卷，删除容器数据不丢失
