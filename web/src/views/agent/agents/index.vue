@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="agent-list">
     <el-card>
       <template #header>
@@ -132,7 +132,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Search, Refresh, Edit, Delete, Memo, Share, Upload } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -142,6 +142,9 @@ const router = useRouter()
 const loading = ref(false)
 const agents = ref([])
 const fileInput = ref(null)
+let isMounted = true
+
+onBeforeUnmount(() => { isMounted = false })
 
 const searchForm = reactive({
   name: '',
@@ -195,15 +198,17 @@ const fetchAgents = async () => {
       limit: pageInfo.pageSize,
       ...searchForm
     })
+    if (!isMounted) return
     if (res.data) {
       agents.value = res.data.items || res.data
       pageInfo.total = res.data.total || agents.value.length
     }
   } catch (error) {
+    if (!isMounted) return
     ElMessage.error('获取智能体列表失败')
     console.error(error)
   } finally {
-    loading.value = false
+    if (isMounted) loading.value = false
   }
 }
 

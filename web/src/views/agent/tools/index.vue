@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <div class="tool-list">
         <el-card>
             <template #header>
@@ -107,7 +107,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Search, Refresh, Edit, Delete, Folder } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -117,6 +117,9 @@ const router = useRouter()
 const loading = ref(false)
 const tools = ref([])
 const tags = ref([])
+let isMounted = true
+
+onBeforeUnmount(() => { isMounted = false })
 
 const searchForm = reactive({
     name: '',
@@ -146,25 +149,29 @@ const fetchTools = async () => {
             enabled: searchForm.enabled
         }
         const res = await getTools(params)
+        if (!isMounted) return
         if (res.data) {
             tools.value = res.data.items || res.data
             pageInfo.total = res.data.total || tools.value.length
         }
     } catch (error) {
+        if (!isMounted) return
         ElMessage.error('获取工具列表失败')
         console.error(error)
     } finally {
-        loading.value = false
+        if (isMounted) loading.value = false
     }
 }
 
 const fetchTags = async () => {
     try {
         const res = await getActiveToolTags()
+        if (!isMounted) return
         if (res.data) {
             tags.value = res.data
         }
     } catch (error) {
+        if (!isMounted) return
         console.error('获取标签列表失败', error)
     }
 }

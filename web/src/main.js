@@ -22,4 +22,16 @@ app.use(pinia)
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
 
+// 抑制 Vue DevTools 内部错误：reportAllChanges 访问已卸载组件的 startTime
+// 这是 Vue DevTools 扩展的已知问题，不影响应用功能
+window.addEventListener('error', (e) => {
+  const msg = e.message || ''
+  const stack = e.error?.stack || ''
+  if (msg.includes('startTime') && stack.includes('reportAllChanges')) {
+    e.preventDefault()
+    e.stopPropagation()
+    return false
+  }
+})
+
 app.mount('#app')

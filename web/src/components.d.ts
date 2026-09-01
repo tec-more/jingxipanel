@@ -61,6 +61,7 @@ declare module 'vue' {
     ElTag: typeof import('element-plus/es')['ElTag']
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     ElTreeSelect: typeof import('element-plus/es')['ElTreeSelect']
+    ElUpload: typeof import('element-plus/es')['ElUpload']
     FlowNodePanel: typeof import('./components/approval/FlowNodePanel.vue')['default']
     GlobalApproval: typeof import('./components/GlobalApproval.vue')['default']
     LangGraphEditor: typeof import('./components/LangGraphEditor.vue')['default']
