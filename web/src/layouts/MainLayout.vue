@@ -78,7 +78,7 @@
             class="back-btn"
             v-if="showBackButton"
           >
-            <el-icon><ArrowLeft /></el-icon>
+            <el-icon><component :is="Icons.ArrowLeft" /></el-icon>
             返回
           </el-button>
           <el-breadcrumb separator="/">
@@ -144,17 +144,67 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, markRaw } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  UserFilled, Odometer, Setting, User, OfficeBuilding, Key, Menu,
-  Connection, Document, Folder, Files, Grid, List, Search, Edit,
-  Delete, Plus, Minus, Check, Close, Warning, InfoFilled, QuestionFilled,
-  Star, Message, Bell, Calendar, Clock, Location, Phone, Picture,
-  VideoCamera, Upload, Download, Link, Share, Lock, Unlock, Tools,
-  Monitor, DataLine, PieChart, TrendCharts, Histogram, ArrowLeft
-} from '@element-plus/icons-vue'
+import * as Icons from '@element-plus/icons-vue'
+
+// 菜单图标别名映射：将 manifest 中使用的非 Element Plus 图标名（如 Lucide 风格）
+// 映射到对应的 Element Plus 图标组件名，避免回退为默认 Document 图标
+const iconAlias = {
+  'Activity': 'DataLine',
+  'AlertTriangle': 'Warning',
+  'ArrowRightLeft': 'Switch',
+  'Bank': 'OfficeBuilding',
+  'Banknote': 'Money',
+  'BarChart3': 'Histogram',
+  'BookMark': 'Reading',
+  'BookOpen': 'Reading',
+  'Bookmark': 'Reading',
+  'Bot': 'Cpu',
+  'Boxes': 'Goods',
+  'Building': 'OfficeBuilding',
+  'Building2': 'OfficeBuilding',
+  'Calculator': 'Coin',
+  'CalendarCheck': 'Calendar',
+  'CheckCircle': 'CircleCheckFilled',
+  'CheckSquare': 'Select',
+  'ClipboardList': 'DocumentChecked',
+  'CloudServer': 'Cpu',
+  'Columns': 'Grid',
+  'Database': 'Grid',
+  'Factory': 'OfficeBuilding',
+  'FileCheck': 'DocumentChecked',
+  'FileEdit': 'Edit',
+  'FileSpreadsheet': 'Document',
+  'FileText': 'Document',
+  'Gift': 'Present',
+  'Inbox': 'MessageBox',
+  'Landmark': 'OfficeBuilding',
+  'Layers': 'Grid',
+  'Layout': 'Grid',
+  'ListChecks': 'List',
+  'LogIn': 'Right',
+  'LogOut': 'Back',
+  'MapPin': 'Location',
+  'Package': 'Box',
+  'Receipt': 'Document',
+  'RefreshCw': 'Refresh',
+  'Repeat': 'Refresh',
+  'Send': 'Promotion',
+  'Settings': 'Setting',
+  'ShieldCheck': 'CircleCheckFilled',
+  'Table': 'Grid',
+  'Tags': 'PriceTag',
+  'Trash': 'DeleteFilled',
+  'Trash2': 'DeleteFilled',
+  'TrendingDown': 'TrendCharts',
+  'TrendingUp': 'TrendCharts',
+  'Version': 'Document',
+  'Warehouse': 'Box',
+  'Wrench': 'Tools',
+  'icon-agent': 'Cpu'
+}
 import { useUserStore } from '@/stores/user'
 import { useMenuStore } from '@/stores/menu'
 import { useSystemStore } from '@/stores/system'
@@ -163,57 +213,10 @@ import ApprovalPrompt from '@/views/approval/ApprovalPrompt.vue'
 import GlobalApproval from '@/components/GlobalApproval.vue'
 import MailBell from '@/components/MailBell.vue'
 
-// 图标组件映射
-const iconComponents = {
-  Odometer: markRaw(Odometer),
-  Setting: markRaw(Setting),
-  User: markRaw(User),
-  OfficeBuilding: markRaw(OfficeBuilding),
-  UserFilled: markRaw(UserFilled),
-  Key: markRaw(Key),
-  Menu: markRaw(Menu),
-  Connection: markRaw(Connection),
-  Document: markRaw(Document),
-  Folder: markRaw(Folder),
-  Files: markRaw(Files),
-  Grid: markRaw(Grid),
-  List: markRaw(List),
-  Search: markRaw(Search),
-  Edit: markRaw(Edit),
-  Delete: markRaw(Delete),
-  Plus: markRaw(Plus),
-  Minus: markRaw(Minus),
-  Check: markRaw(Check),
-  Close: markRaw(Close),
-  Warning: markRaw(Warning),
-  InfoFilled: markRaw(InfoFilled),
-  QuestionFilled: markRaw(QuestionFilled),
-  Star: markRaw(Star),
-  Message: markRaw(Message),
-  Bell: markRaw(Bell),
-  Calendar: markRaw(Calendar),
-  Clock: markRaw(Clock),
-  Location: markRaw(Location),
-  Phone: markRaw(Phone),
-  Picture: markRaw(Picture),
-  VideoCamera: markRaw(VideoCamera),
-  Upload: markRaw(Upload),
-  Download: markRaw(Download),
-  Link: markRaw(Link),
-  Share: markRaw(Share),
-  Lock: markRaw(Lock),
-  Unlock: markRaw(Unlock),
-  Tools: markRaw(Tools),
-  Monitor: markRaw(Monitor),
-  DataLine: markRaw(DataLine),
-  PieChart: markRaw(PieChart),
-  TrendCharts: markRaw(TrendCharts),
-  Histogram: markRaw(Histogram)
-}
-
-// 根据图标名称获取组件
+// 根据图标名称获取组件：先查别名表，再从全量 Element Plus 图标中取，最后回退到 Document
 const getIconComponent = (iconName) => {
-  return iconComponents[iconName] || iconComponents.Document
+  const name = iconAlias[iconName] || iconName
+  return Icons[name] || Icons.Document
 }
 
 const route = useRoute()

@@ -38,48 +38,56 @@
         {
             "name": "智能体管理",
             "path": "/agent",
-            "icon": "icon-agent",
+            "icon": "Cpu",
             "component": "agent/index",
             "sort": 5100,
             "children": [
                 {
                     "name": "智能体",
                     "path": "/agent/list",
+                    "icon": "Avatar",
                     "component": "agent/agents"
                 },
                 {
                     "name": "工作流",
                     "path": "/agent/workflows",
+                    "icon": "Connection",
                     "component": "agent/workflows"
                 },
                 {
                     "name": "对话流",
                     "path": "/agent/dialog-flows",
+                    "icon": "ChatDotRound",
                     "component": "agent/dialog-flows"
                 },
                 {
                     "name": "技能管理",
                     "path": "/agent/skills",
+                    "icon": "MagicStick",
                     "component": "agent/skills"
                 },
                 {
                     "name": "工具管理",
                     "path": "/agent/tools",
+                    "icon": "Tools",
                     "component": "agent/tools"
                 },
                 {
                     "name": "记忆管理",
                     "path": "/agent/memory",
+                    "icon": "Reading",
                     "component": "agent/memory"
                 },
                 {
                     "name": "RAG知识库",
                     "path": "/agent/rag",
+                    "icon": "Collection",
                     "component": "agent/rag"
                 },
                 {
                     "name": "执行记录",
                     "path": "/agent/executions",
+                    "icon": "List",
                     "component": "agent/executions"
                 }
             ]
