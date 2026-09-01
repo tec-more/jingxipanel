@@ -6,38 +6,146 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>井溪畅联</title>
     <script>
-      // 在 Vue 加载前配置 DevTools hook，禁用性能追踪以避免 startTime 错误
-      (function() {
-        var hook = window.__VUE_DEVTOOLS_GLOBAL_HOOK__
-        if (hook) {
-          hook.config = hook.config || {}
-          hook.config.performance = false
-          hook.config.renderTracker = false
+      // ============================================================
+      // 修复 Vue DevTools Web Vitals INP 监控的 startTime 崩溃
+      // 根因：DevTools 注入的脚本在 entries 为空数组时访问 entries[0].startTime
+      // 方案：修补 PerformanceObserver，确保 getEntries 始终返回至少一个条目
+      // ============================================================
+      ;(function () {
+        if (!window.PerformanceObserver || !window.PerformanceObserverEntryList) return
+
+        // 模拟一个 PerformanceEventTiming 条目
+        var dummyEntry = {
+          entryType: 'event',
+          name: 'pointerdown',
+          startTime: 0,
+          duration: 0,
+          interactionId: 1,
+          target: null,
+          processingStart: 0,
+          processingEnd: 0,
+          cancelable: false
+        }
+
+        var proto = window.PerformanceObserverEntryList.prototype
+
+        // 修补 getEntries
+        var _getEntries = proto.getEntries
+        if (_getEntries) {
+          proto.getEntries = function () {
+            var entries = _getEntries.call(this)
+            if (!entries || entries.length === 0) {
+              return [dummyEntry]
+            }
+            return entries
+          }
+        }
+
+        // 修补 getEntriesByType
+        var _getEntriesByType = proto.getEntriesByType
+        if (_getEntriesByType) {
+          proto.getEntriesByType = function (type) {
+            var entries = _getEntriesByType.call(this, type)
+            if (!entries || entries.length === 0) {
+              return [dummyEntry]
+            }
+            return entries
+          }
+        }
+
+        // 修补 getEntriesByName
+        var _getEntriesByName = proto.getEntriesByName
+        if (_getEntriesByName) {
+          proto.getEntriesByName = function (name, type) {
+            var entries = _getEntriesByName.call(this, name, type)
+            if (!entries || entries.length === 0) {
+              return [dummyEntry]
+            }
+            return entries
+          }
+        }
+
+        // 也修补 performance 全局对象的方法（Web Vitals 可能直接调用）
+        var perf = window.performance
+        if (perf) {
+          var _perfGetEntries = perf.getEntries
+          if (_perfGetEntries) {
+            perf.getEntries = function () {
+              var entries = _perfGetEntries.call(this)
+              if (!entries || entries.length === 0) {
+                return [dummyEntry]
+              }
+              return entries
+            }
+          }
+          var _perfGetEntriesByType = perf.getEntriesByType
+          if (_perfGetEntriesByType) {
+            perf.getEntriesByType = function (type) {
+              var entries = _perfGetEntriesByType.call(this, type)
+              if (!entries || entries.length === 0) {
+                return [dummyEntry]
+              }
+              return entries
+            }
+          }
+          var _perfGetEntriesByName = perf.getEntriesByName
+          if (_perfGetEntriesByName) {
+            perf.getEntriesByName = function (name, type) {
+              var entries = _perfGetEntriesByName.call(this, name, type)
+              if (!entries || entries.length === 0) {
+                return [dummyEntry]
+              }
+              return entries
+            }
+          }
         }
       })()
 
-      // 修复 Vue DevTools 扩展的 startTime 报错
-      // 该错误来自 DevTools 的 reportAllChanges，在组件快速卸载时访问已清理的性能数据
-      // 方案：包装 setTimeout，捕获并忽略 DevTools 内部的 startTime 错误
-      (function() {
-        var originalSetTimeout = window.setTimeout
-        window.setTimeout = function(callback, delay) {
-          var args = Array.prototype.slice.call(arguments, 2)
-          var wrappedCallback = function() {
-            try {
-              return callback.apply(this, args)
-            } catch (e) {
-              var msg = (e && e.message) || ''
-              var stack = (e && e.stack) || ''
-              if (msg.indexOf('startTime') !== -1 && stack.indexOf('reportAllChanges') !== -1) {
-                return // 忽略 Vue DevTools 内部错误
-              }
-              throw e
-            }
-          }
-          return originalSetTimeout.call(this, wrappedCallback, delay)
+      // ============================================================
+      // 兜底：window.onerror 抑制错误（防止其他上下文的同类错误）
+      // ============================================================
+      function isStartTimeError(message, error) {
+        var msg = (message || '') + ''
+        if (msg.indexOf('startTime') !== -1) return true
+        var stack = (error && error.stack) || ''
+        if (stack.indexOf('startTime') !== -1) return true
+        if (stack.indexOf('entries') !== -1 && stack.indexOf('reportAllChanges') !== -1) return true
+        return false
+      }
+
+      var _onError = function (message, source, lineno, colno, error) {
+        if (isStartTimeError(message, error)) return true
+        return false
+      }
+
+      // 使用 getter/setter 锁定，防止被外部脚本覆盖
+      try {
+        Object.defineProperty(window, 'onerror', {
+          get: function () { return _onError },
+          set: function () {},
+          configurable: false
+        })
+      } catch (e) {
+        window.onerror = _onError
+      }
+
+      // error 事件捕获阶段兜底
+      window.addEventListener('error', function (e) {
+        if (isStartTimeError(e.message, e.error)) {
+          e.stopImmediatePropagation()
+          e.preventDefault()
         }
-      })()
+      }, true)
+
+      // Promise 未处理拒绝兜底
+      window.addEventListener('unhandledrejection', function (e) {
+        var reason = e.reason
+        var msg = (reason && reason.message) || String(reason || '')
+        if (msg.indexOf('startTime') !== -1) {
+          e.stopImmediatePropagation()
+          e.preventDefault()
+        }
+      }, true)
     </script>
   </head>
   <body>

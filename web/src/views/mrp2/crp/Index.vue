@@ -220,7 +220,7 @@ const handleAdd = () => {
 }
 
 const handleCalculate = async () => {
-  const data = await request.post('/v1/mrp2/crp/calculate')
+  const data = await request.post('/v1/mrp2/crp/calculate', {})
   if (data.code === 0) {
     ElMessage.success('CRP计算完成')
     fetchData()

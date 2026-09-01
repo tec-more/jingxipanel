@@ -215,7 +215,7 @@ const handleAdd = () => {
 }
 
 const handleCalculate = async () => {
-  const data = await request.post('/v1/mrp2/mrp/calculate')
+  const data = await request.post('/v1/mrp2/mrp/calculate', {})
   if (data.code === 0) {
     ElMessage.success('MRP计算完成')
     fetchData()
