@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query
 from typing import Optional
 
+from base.common.response import success_response
 from base.plugins.purchase.schemas import (
     PurchaseOrderCreate,
     PurchaseOrderUpdate,
@@ -38,7 +39,7 @@ async def get_purchase_order_list(
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None)
 ):
-    return await PurchaseOrderService.get_purchase_order_list(
+    data = await PurchaseOrderService.get_purchase_order_list(
         page=page,
         page_size=page_size,
         order_no=order_no,
@@ -47,6 +48,7 @@ async def get_purchase_order_list(
         start_date=start_date,
         end_date=end_date
     )
+    return success_response(data=data)
 
 
 @purchase_router.put("/{order_id}", response_model=PurchaseOrderResponse, summary="更新采购订单")
@@ -108,7 +110,7 @@ async def get_purchase_receipt_list(
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None)
 ):
-    return await PurchaseReceiptService.get_purchase_receipt_list(
+    data = await PurchaseReceiptService.get_purchase_receipt_list(
         page=page,
         page_size=page_size,
         receipt_no=receipt_no,
@@ -117,6 +119,7 @@ async def get_purchase_receipt_list(
         start_date=start_date,
         end_date=end_date
     )
+    return success_response(data=data)
 
 
 @purchase_router.put("/receipt/{receipt_id}", response_model=PurchaseReceiptResponse, summary="更新采购收货单")

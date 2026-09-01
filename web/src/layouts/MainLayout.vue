@@ -72,7 +72,7 @@
             <Expand v-else />
           </el-icon>
           <el-button 
-            type="link" 
+            type="text" 
             size="small" 
             @click="goBack" 
             class="back-btn"

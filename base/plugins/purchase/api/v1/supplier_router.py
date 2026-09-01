@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from typing import Optional
 
+from base.common.response import success_response
 from base.plugins.purchase.schemas import SupplierCreate, SupplierUpdate, SupplierResponse
 from base.plugins.purchase.services import SupplierService
 
@@ -29,13 +30,14 @@ async def get_supplier_list(
     supplier_type: Optional[str] = Query(None),
     status: Optional[str] = Query(None)
 ):
-    return await SupplierService.get_supplier_list(
+    data = await SupplierService.get_supplier_list(
         page=page,
         page_size=page_size,
         supplier_name=supplier_name,
         supplier_type=supplier_type,
         status=status
     )
+    return success_response(data=data)
 
 
 @supplier_router.put("/{supplier_id}", response_model=SupplierResponse, summary="更新供应商")
