@@ -31,7 +31,7 @@ if __name__ == "__main__":
     
     try:
         print("=" * 70, flush=True)
-        print("🚀 AI Panel Admin 服务器启动中...", flush=True)
+        print("🚀 * 服务器启动中...", flush=True)
         print("=" * 70, flush=True)
         print(f"📡 服务地址: http://0.0.0.0:{PORT}", flush=True)
         print(f"📡 本地访问: http://127.0.0.1:{PORT}", flush=True)

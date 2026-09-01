@@ -1,4 +1,4 @@
-# AI Panel Admin 前端
+# 井溪畅联 前端
 
 基于 Vue3 + Element Plus 的后台管理系统前端。
 

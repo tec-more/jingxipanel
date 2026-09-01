@@ -102,7 +102,7 @@
           </template>
           <div class="welcome-content">
             <div class="welcome-text">
-              <h2>AI Panel Admin</h2>
+              <h2>井溪畅联</h2>
               <p class="subtitle">现代化后台管理系统</p>
               <p class="welcome-msg">
                 欢迎回来，<span class="username">{{ userStore.username }}</span>！
