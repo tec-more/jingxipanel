@@ -56,6 +56,12 @@ if (window.__VUE_DEVTOOLS_GLOBAL_HOOK__) {
 }
 
 const app = createApp(App)
+
+// 禁用 Vue DevTools 集成，修复 DevTools 扩展的 startTime 报错
+// 原因：DevTools 在组件快速卸载时，reportAllChanges 仍访问已清理的性能数据(startTime)
+// 如需使用 DevTools 调试，可注释掉此行（但 DevTools 的 startTime 报错会恢复）
+app.config.devtools = false
+
 const pinia = createPinia()
 
 // 注册所有图标
