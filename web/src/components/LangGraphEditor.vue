@@ -426,7 +426,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { Check, VideoPlay, Download, Upload, User, Tools, Document, Link, Cpu, Filter, CircleCheck, VideoPlay as Play, Refresh, List, Collection, Edit, ZoomIn, ZoomOut } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { getAgents, getSkills, updateWorkflow, executeWorkflow as apiExecuteWorkflow, executeAgentGraphAuto, executeWorkflowGraphAuto } from '@/api/agent'
@@ -1772,6 +1772,13 @@ watch(() => props.initialEdges, (newEdges) => {
     }
   }
 }, { immediate: true });
+
+onUnmounted(() => {
+  if (typingInterval) {
+    clearInterval(typingInterval)
+    typingInterval = null
+  }
+})
 </script>
 
 <style scoped>

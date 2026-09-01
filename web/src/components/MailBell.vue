@@ -61,6 +61,7 @@ const popoverVisible = ref(false)
 let ws = null
 let shouldReconnect = false
 let pollTimer = null
+let reconnectTimer = null
 
 const stripHtml = (html) => {
   if (!html) return ''
@@ -102,6 +103,7 @@ const fetchRecent = async () => {
 }
 
 const connectWs = () => {
+  if (!shouldReconnect) return
   const token = localStorage.getItem('token')
   if (!token) return
 
@@ -145,7 +147,7 @@ const connectWs = () => {
   ws.onclose = () => {
     ws = null
     if (shouldReconnect) {
-      setTimeout(connectWs, 3000)
+      reconnectTimer = setTimeout(connectWs, 3000)
     }
   }
 
@@ -192,6 +194,7 @@ const onRefreshEvent = () => {
 onMounted(() => {
   fetchUnread()
   fetchRecent()
+  shouldReconnect = true
   connectWs()
   pollTimer = setInterval(fetchUnread, 30000)
   window.addEventListener('mail:refresh', onRefreshEvent)
@@ -199,6 +202,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   shouldReconnect = false
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
   if (pollTimer) {
     clearInterval(pollTimer)
     pollTimer = null
