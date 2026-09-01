@@ -42,3 +42,15 @@ html, body, #app {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+// 搜索表单统一样式：表单项之间增加间距，避免紧贴
+.el-form--inline {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 16px 24px !important;
+  align-items: center;
+}
+
+.el-form--inline .el-form-item {
+  margin: 0 !important;
+}
