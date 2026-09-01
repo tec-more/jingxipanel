@@ -13,7 +13,7 @@ try:
     from base.plugins.mrp2.schemas.mrp_schema import (
         SalesForecastCreate, SalesForecastUpdate,
         MPSCreate, MPSUpdate,
-        MRPCalculationCreate,
+        MRPCalculationCreate, MRPCalculationUpdate,
         CRPCreate,
         MonitorCreate,
         AlertCreate,
@@ -657,6 +657,44 @@ class MRPService:
         await CapacityRequirementPlan.filter(mrp_id=mrp_id).delete()
         await MRPCalculation.filter(id=mrp_id).delete()
         return True
+
+    @staticmethod
+    async def update_mrp(mrp_id: int, data: MRPCalculationUpdate) -> Optional[MRPCalculation]:
+        mrp = await MRPService.get_by_id(mrp_id)
+        if not mrp:
+            return None
+        update_data = data.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(mrp, key, value)
+        await mrp.save()
+        return mrp
+
+    @staticmethod
+    async def submit_for_review(mrp_id: int) -> Optional[MRPCalculation]:
+        mrp = await MRPService.get_by_id(mrp_id)
+        if not mrp:
+            return None
+        mrp.status = "pending"
+        await mrp.save()
+        return mrp
+
+    @staticmethod
+    async def approve_mrp(mrp_id: int) -> Optional[MRPCalculation]:
+        mrp = await MRPService.get_by_id(mrp_id)
+        if not mrp:
+            return None
+        mrp.status = "approved"
+        await mrp.save()
+        return mrp
+
+    @staticmethod
+    async def reject_mrp(mrp_id: int) -> Optional[MRPCalculation]:
+        mrp = await MRPService.get_by_id(mrp_id)
+        if not mrp:
+            return None
+        mrp.status = "rejected"
+        await mrp.save()
+        return mrp
 
     @staticmethod
     async def get_list(

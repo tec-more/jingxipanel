@@ -5,6 +5,7 @@ from base.plugins.mrp2.services.mrp_service import MRPService
 from base.plugins.mrp2.services.planned_order_service import PlannedOrderService
 from base.plugins.mrp2.schemas.mrp_schema import (
     MRPCalculationCreate,
+    MRPCalculationUpdate,
     MRPCalculateRequest
 )
 from base.common.response import success_response
@@ -51,6 +52,37 @@ async def create_mrp(data: MRPCalculationCreate):
 async def calculate_mrp(data: MRPCalculateRequest):
     try:
         mrp = await MRPService.calculate_mrp(data)
+        return success_response(data=mrp)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@mrp_router.put("/{mrp_id}/submit", summary="提交审核")
+async def submit_mrp(mrp_id: int):
+    mrp = await MRPService.submit_for_review(mrp_id)
+    if not mrp:
+        raise HTTPException(status_code=404, detail="MRP计算不存在")
+    return success_response(data=mrp, msg="MRP已提交审核")
+
+@mrp_router.put("/{mrp_id}/approve", summary="审批通过")
+async def approve_mrp(mrp_id: int):
+    mrp = await MRPService.approve_mrp(mrp_id)
+    if not mrp:
+        raise HTTPException(status_code=404, detail="MRP计算不存在")
+    return success_response(data=mrp, msg="MRP审批通过")
+
+@mrp_router.put("/{mrp_id}/reject", summary="驳回")
+async def reject_mrp(mrp_id: int):
+    mrp = await MRPService.reject_mrp(mrp_id)
+    if not mrp:
+        raise HTTPException(status_code=404, detail="MRP计算不存在")
+    return success_response(data=mrp, msg="MRP已驳回")
+
+@mrp_router.put("/{mrp_id}", summary="更新MRP计算")
+async def update_mrp(mrp_id: int, data: MRPCalculationUpdate):
+    try:
+        mrp = await MRPService.update_mrp(mrp_id, data)
+        if not mrp:
+            raise HTTPException(status_code=404, detail="MRP计算不存在")
         return success_response(data=mrp)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -178,6 +178,18 @@ class MRPCalculationCreate(MRPCalculationBase):
     pass
 
 
+class MRPCalculationUpdate(BaseModel):
+    mrp_name: Optional[str] = Field(None, min_length=1, max_length=255, description="MRP名称")
+    mps_id: Optional[int] = Field(None, description="关联MPS ID")
+    mps_code: Optional[str] = Field(None, max_length=100, description="关联MPS编号")
+    start_date: Optional[date] = Field(None, description="需求开始日期")
+    end_date: Optional[date] = Field(None, description="需求结束日期")
+    net_requirement_only: Optional[bool] = Field(None, description="是否仅计算净需求")
+    include_safety_stock: Optional[bool] = Field(None, description="是否包含安全库存")
+    include_wip: Optional[bool] = Field(None, description="是否包含在制品")
+    status: Optional[str] = Field(None, max_length=20, description="状态")
+
+
 class MRPCalculationResponse(MRPCalculationBase):
     id: int
     calculation_date: Optional[datetime] = None
