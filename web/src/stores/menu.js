@@ -113,8 +113,17 @@ function loadComponent(component) {
       return viewModules[searchKey]
     }
 
+    // 精确后缀匹配
     for (const [key, value] of Object.entries(viewModules)) {
       if (key.endsWith(`/${pattern}`) || key === searchKey) {
+        return value
+      }
+    }
+
+    // 大小写不敏感匹配（处理 Index.vue vs index.vue 等情况）
+    const patternLower = pattern.toLowerCase()
+    for (const [key, value] of Object.entries(viewModules)) {
+      if (key.toLowerCase().endsWith(`/${patternLower}`)) {
         return value
       }
     }

@@ -5,6 +5,30 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>井溪畅联</title>
+    <script>
+      // 修复 Vue DevTools 扩展的 startTime 报错
+      // 该错误来自 DevTools 的 reportAllChanges，在组件快速卸载时访问已清理的性能数据
+      // 方案：包装 setTimeout，捕获并忽略 DevTools 内部的 startTime 错误
+      (function() {
+        var originalSetTimeout = window.setTimeout
+        window.setTimeout = function(callback, delay) {
+          var args = Array.prototype.slice.call(arguments, 2)
+          var wrappedCallback = function() {
+            try {
+              return callback.apply(this, args)
+            } catch (e) {
+              var msg = (e && e.message) || ''
+              var stack = (e && e.stack) || ''
+              if (msg.indexOf('startTime') !== -1 && stack.indexOf('reportAllChanges') !== -1) {
+                return // 忽略 Vue DevTools 内部错误
+              }
+              throw e
+            }
+          }
+          return originalSetTimeout.call(this, wrappedCallback, delay)
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

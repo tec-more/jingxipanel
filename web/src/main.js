@@ -9,6 +9,52 @@ import App from './App.vue'
 import router from './router'
 import './styles/index.scss'
 
+// 修复 Vue DevTools 扩展的 startTime 报错问题
+// 原因：DevTools 在组件快速卸载时，reportAllChanges 仍尝试访问已清理的性能数据
+if (window.__VUE_DEVTOOLS_GLOBAL_HOOK__) {
+  try {
+    const hook = window.__VUE_DEVTOOLS_GLOBAL_HOOK__
+    // 禁用性能追踪（startTime 属于性能追踪数据）
+    hook.config = hook.config || {}
+    hook.config.performance = false
+    hook.config.renderTracker = false
+    // 包装 emit 捕获 DevTools 内部错误
+    const originalEmit = hook.emit
+    if (originalEmit) {
+      hook.emit = function (...args) {
+        try {
+          return originalEmit.apply(this, args)
+        } catch (e) { /* 忽略 DevTools 内部错误 */ }
+      }
+    }
+    // 包装 on 方法，拦截 component 事件并包装 reportAllChanges
+    const originalOn = hook.on
+    if (originalOn) {
+      hook.on = function (event, handler) {
+        if (event === 'component:added' || event === 'component:updated') {
+          const wrappedHandler = function (...args) {
+            try {
+              // 包装组件实例的 reportAllChanges 方法
+              const instance = args[0]
+              if (instance && typeof instance.reportAllChanges === 'function') {
+                const originalReport = instance.reportAllChanges
+                instance.reportAllChanges = function (...reportArgs) {
+                  try {
+                    return originalReport.apply(this, reportArgs)
+                  } catch (e) { /* 忽略 */ }
+                }
+              }
+              return handler.apply(this, args)
+            } catch (e) { /* 忽略 */ }
+          }
+          return originalOn.call(this, event, wrappedHandler)
+        }
+        return originalOn.call(this, event, handler)
+      }
+    }
+  } catch (e) {}
+}
+
 const app = createApp(App)
 const pinia = createPinia()
 
@@ -21,17 +67,5 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 app.use(pinia)
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
-
-// 抑制 Vue DevTools 内部错误：reportAllChanges 访问已卸载组件的 startTime
-// 这是 Vue DevTools 扩展的已知问题，不影响应用功能
-window.addEventListener('error', (e) => {
-  const msg = e.message || ''
-  const stack = e.error?.stack || ''
-  if (msg.includes('startTime') && stack.includes('reportAllChanges')) {
-    e.preventDefault()
-    e.stopPropagation()
-    return false
-  }
-})
 
 app.mount('#app')
